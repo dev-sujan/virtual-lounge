@@ -7,8 +7,41 @@
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.5s ease, color 0.5s ease;
   }
 }
+
+/* Theme Root Styles */
+[data-theme='cyberpunk'] body {
+  background-color: #0a0518;
+}
+[data-theme='synthwave'] body {
+  background-color: #12091c;
+}
+[data-theme='lofi'] body {
+  background-color: #140d0a;
+}
+[data-theme='emerald'] body {
+  background-color: #061412;
+}
+
+[data-theme='cyberpunk'] .glass-card {
+  background: rgba(22, 10, 42, 0.85);
+  border-color: rgba(236, 72, 153, 0.2);
+}
+[data-theme='synthwave'] .glass-card {
+  background: rgba(30, 14, 45, 0.85);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+[data-theme='lofi'] .glass-card {
+  background: rgba(32, 21, 16, 0.85);
+  border-color: rgba(217, 119, 6, 0.2);
+}
+[data-theme='emerald'] .glass-card {
+  background: rgba(10, 30, 26, 0.85);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
 
 /* Glassmorphism Utilities */
 .glass-card {

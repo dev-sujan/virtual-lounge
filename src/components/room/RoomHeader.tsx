@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { useRoomStore } from '../../stores/useRoomStore';
 import { useVideoStore } from '../../stores/useVideoStore';
 import { AmbientSoundPlayer } from '../common/AmbientSoundPlayer';
+import { ThemeSelector } from '../common/ThemeSelector';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
 import { Lock, Share2, LogOut, Video, Copy, Check, Activity, ShieldCheck } from 'lucide-react';
-
 
 export const RoomHeader: React.FC = () => {
   const { roomId, password, peers } = useRoomStore();
@@ -83,8 +83,12 @@ export const RoomHeader: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-1.5 sm:space-x-2">
+          {/* Theme Selector */}
+          <ThemeSelector />
+
           {/* Ambient Sounds Player */}
           <AmbientSoundPlayer />
+
 
           <button
             onClick={handleStartVideo}

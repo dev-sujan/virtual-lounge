@@ -4,7 +4,9 @@ import { useRoomStore } from '../../stores/useRoomStore';
 import { useToastStore } from '../../stores/useToastStore';
 import { peerService } from '../../services/webrtc/peerService';
 import { formatTime } from '../../utils/youtubeUtils';
+import { AudioEqualizer } from './AudioEqualizer';
 import type { SyncMessagePayload } from '../../types';
+
 import {
   Play,
   Pause,
@@ -452,6 +454,10 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
                     <FastForward className="w-3.5 h-3.5 text-indigo-400" />
                     <span>{playbackSpeed}x</span>
                   </button>
+
+                  {/* Audio Equalizer & Sound Effects Deck */}
+                  <AudioEqualizer />
+
                 </div>
 
                 {/* Play / Skip Buttons */}
