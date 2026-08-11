@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRoomStore } from '../stores/useRoomStore';
 import { generateRoomId, generatePassword, generateUserId, parseInviteParams, AVATAR_COLORS } from '../utils/roomUtils';
-import { Music, Sparkles, ArrowRight, ShieldCheck, PlayCircle, Video, Gamepad2, Check, Lock, Key } from 'lucide-react';
+import { Music, Sparkles, ArrowRight, ShieldCheck, PlayCircle, Video, Gamepad2, Check } from 'lucide-react';
 
 export const Home: React.FC = () => {
   const [tab, setTab] = useState<'create' | 'join'>('create');
