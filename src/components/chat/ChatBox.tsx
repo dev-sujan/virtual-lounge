@@ -23,7 +23,13 @@ import {
   Pin,
   BarChart2,
   Terminal,
+  Edit2,
+  Undo2,
+  Flame,
+  Check,
+  CheckCheck,
 } from 'lucide-react';
+
 
 interface SlashCommandInfo {
   command: string;
@@ -78,6 +84,10 @@ export const ChatBox: React.FC = () => {
   const [isTypingLocal, setIsTypingLocal] = useState(false);
   const [selectedEmojiCat, setSelectedEmojiCat] = useState<string>('🎉 Party & Vibe');
 
+  // Editing State
+  const [editingMsgId, setEditingMsgId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState('');
+
   // Slash Command Suggestions state
   const [showSlashSuggestions, setShowSlashSuggestions] = useState(false);
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
@@ -108,12 +118,17 @@ export const ChatBox: React.FC = () => {
     messages,
     typingUsers,
     replyingTo,
+    isVanishMode,
     addMessage,
     deleteMessage,
+    editMessage,
+    unsendMessage,
+    markMessagesRead,
     addReaction,
     votePollOption,
     togglePinMessage,
     setReplyingTo,
+    toggleVanishMode,
     clearChat,
   } = useChatStore();
 
@@ -122,6 +137,14 @@ export const ChatBox: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
+
+  // Read receipts auto-sync
+  useEffect(() => {
+    if (currentUser) {
+      markMessagesRead(currentUser.id);
+      peerService.broadcast('CHAT_READ_RECEIPT', { userId: currentUser.id });
+    }
+  }, [messages.length, currentUser?.id]);
 
   // Filter matching slash commands based on input
   const matchingSlashCommands = inputText.startsWith('/')
@@ -260,6 +283,13 @@ export const ChatBox: React.FC = () => {
 
   const handleSendMessage = (e?: React.FormEvent, customImg?: string, customPoll?: any) => {
     if (e) e.preventDefault();
+
+    // If in editing mode, save edit instead of sending new message
+    if (editingMsgId) {
+      handleSaveEdit();
+      return;
+    }
+
     const rawText = inputText.trim();
     if (!rawText && !customImg && !imageUrlInput && !customPoll) return;
     if (!currentUser) return;
@@ -284,6 +314,9 @@ export const ChatBox: React.FC = () => {
       attachmentType: finalPoll ? 'poll' : finalImg ? 'image' : undefined,
       poll: finalPoll,
       isSystem: !!isAction,
+      readBy: [currentUser.id],
+      isVanish: isVanishMode,
+      vanishSeconds: isVanishMode ? 10 : undefined,
       replyTo: replyingTo
         ? {
             id: replyingTo.id,
@@ -311,6 +344,41 @@ export const ChatBox: React.FC = () => {
         isTyping: false,
       });
     }
+  };
+
+  const handleStartEdit = (msg: ChatMessage) => {
+    setEditingMsgId(msg.id);
+    setEditingText(msg.text);
+    setInputText(msg.text);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  const handleSaveEdit = () => {
+    if (!editingMsgId || !editingText.trim()) return;
+    editMessage(editingMsgId, editingText.trim());
+    peerService.broadcast('CHAT_EDIT', { msgId: editingMsgId, newText: editingText.trim() });
+    setEditingMsgId(null);
+    setEditingText('');
+    setInputText('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMsgId(null);
+    setEditingText('');
+    setInputText('');
+  };
+
+  const handleUnsend = (msgId: string) => {
+    unsendMessage(msgId);
+    peerService.broadcast('CHAT_UNSEND', { msgId });
+  };
+
+  const handleToggleVanish = () => {
+    const nextState = !isVanishMode;
+    toggleVanishMode(nextState);
+    peerService.broadcast('VANISH_MODE_TOGGLE', { enabled: nextState });
   };
 
   const handleCreatePoll = () => {
@@ -406,6 +474,9 @@ export const ChatBox: React.FC = () => {
       audioUrl: audioDataUrl,
       audioDuration: durationSec || 1,
       attachmentType: 'audio',
+      readBy: [currentUser.id],
+      isVanish: isVanishMode,
+      vanishSeconds: isVanishMode ? 10 : undefined,
     };
 
     addMessage(voiceMsg);
@@ -516,8 +587,12 @@ export const ChatBox: React.FC = () => {
   }
 
   return (
-    <div className="glass-card rounded-2xl border border-white/10 flex flex-col h-[580px] max-h-[85vh] shadow-2xl overflow-hidden relative">
-      {/* Header Bar with Search, Media Filters & Export Tools */}
+    <div
+      className={`glass-card rounded-2xl border transition-all flex flex-col h-[580px] max-h-[85vh] shadow-2xl overflow-hidden relative ${
+        isVanishMode ? 'border-purple-500/50 shadow-purple-500/20' : 'border-white/10'
+      }`}
+    >
+      {/* Header Bar with Search, Media Filters & Vanish Mode Switcher */}
       <div className="px-4 py-2.5 bg-slate-900/90 border-b border-white/10 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center space-x-2">
           <Sparkles className="w-4 h-4 text-indigo-400" />
@@ -527,7 +602,21 @@ export const ChatBox: React.FC = () => {
           </span>
         </div>
 
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-1.5">
+          {/* Vanish Mode Toggle */}
+          <button
+            onClick={handleToggleVanish}
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center space-x-1 transition border ${
+              isVanishMode
+                ? 'bg-purple-600/30 text-purple-300 border-purple-400 shadow animate-pulse'
+                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+            }`}
+            title="Toggle Vanish Mode (Self-Destructing Messages)"
+          >
+            <Flame className="w-3.5 h-3.5 text-purple-400" />
+            <span>Vanish {isVanishMode ? 'ON' : 'OFF'}</span>
+          </button>
+
           <button
             onClick={() => setIsSearching(!isSearching)}
             className={`p-1.5 rounded-lg transition ${
@@ -625,6 +714,19 @@ export const ChatBox: React.FC = () => {
         </div>
       )}
 
+      {/* Vanish Mode Banner */}
+      {isVanishMode && (
+        <div className="bg-purple-950/70 border-b border-purple-500/40 px-3 py-1.5 flex items-center justify-between shrink-0 text-xs font-bold text-purple-200 animate-pulse">
+          <div className="flex items-center space-x-2">
+            <Flame className="w-4 h-4 text-purple-400" />
+            <span>✨ Vanish Mode Active — Messages self-destruct after 10s</span>
+          </div>
+          <button onClick={handleToggleVanish} className="text-[10px] bg-white/10 px-2 py-0.5 rounded hover:bg-white/20">
+            Turn Off
+          </button>
+        </div>
+      )}
+
       {/* Live Search Bar */}
       {isSearching && (
         <div className="px-4 py-2 bg-indigo-950/40 border-b border-indigo-500/30 flex items-center space-x-2 animate-fadeIn shrink-0">
@@ -663,6 +765,7 @@ export const ChatBox: React.FC = () => {
           filteredMessages.map((msg) => {
             const isMe = msg.senderId === currentUser?.id;
             const isMobileSelected = mobileActiveMsgId === msg.id;
+            const hasBeenReadByPeers = msg.readBy && msg.readBy.some((id) => id !== currentUser?.id);
 
             if (msg.isSystem) {
               return (
@@ -707,7 +810,11 @@ export const ChatBox: React.FC = () => {
                     <div
                       onClick={() => setMobileActiveMsgId(isMobileSelected ? null : msg.id)}
                       className={`p-3 rounded-2xl text-sm relative shadow-md transition-all ${
-                        isMe
+                        msg.isUnsent
+                          ? 'bg-slate-900/80 text-slate-400 italic border border-white/10'
+                          : msg.isVanish
+                          ? 'bg-gradient-to-r from-purple-900/90 to-pink-900/90 text-purple-100 border border-purple-500/40 shadow-purple-500/20 animate-pulse'
+                          : isMe
                           ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-tr-none'
                           : 'bg-slate-800/90 text-slate-100 border border-white/10 rounded-tl-none'
                       } ${msg.isPinned ? 'ring-2 ring-indigo-400/50 shadow-indigo-500/20' : ''}`}
@@ -720,8 +827,16 @@ export const ChatBox: React.FC = () => {
                         </div>
                       )}
 
+                      {/* Vanish Badge */}
+                      {msg.isVanish && (
+                        <div className="mb-1 flex items-center space-x-1 text-[10px] text-purple-300 font-bold">
+                          <Flame className="w-3 h-3 text-purple-400" />
+                          <span>Vanish Message</span>
+                        </div>
+                      )}
+
                       {/* Image Attachment */}
-                      {msg.imageUrl && (
+                      {msg.imageUrl && !msg.isUnsent && (
                         <div
                           onClick={() => setShowImageModal(msg.imageUrl || null)}
                           className="mb-2 rounded-xl overflow-hidden cursor-pointer relative group/img max-w-xs border border-white/20 shadow-md"
@@ -735,7 +850,7 @@ export const ChatBox: React.FC = () => {
                       )}
 
                       {/* Voice Note Attachment */}
-                      {msg.audioUrl && (
+                      {msg.audioUrl && !msg.isUnsent && (
                         <div className="flex items-center space-x-3 bg-black/30 p-2 rounded-xl border border-white/10 mb-1">
                           <button
                             onClick={() => togglePlayAudio(msg.id, msg.audioUrl)}
@@ -757,7 +872,7 @@ export const ChatBox: React.FC = () => {
                       )}
 
                       {/* Interactive Chat Poll */}
-                      {msg.poll && (
+                      {msg.poll && !msg.isUnsent && (
                         <div className="space-y-2 mb-2 p-3 bg-black/40 rounded-xl border border-white/10 min-w-[220px]">
                           <div className="flex items-center justify-between text-xs font-bold text-indigo-300">
                             <span className="flex items-center space-x-1">
@@ -804,9 +919,20 @@ export const ChatBox: React.FC = () => {
                       {/* Text content with formatting */}
                       {!msg.poll && <p className="whitespace-pre-wrap break-words leading-relaxed">{renderFormattedContent(msg.text)}</p>}
 
-                      <span className="block text-[9px] opacity-60 text-right mt-1 font-mono">
-                        {formatTimestamp(msg.timestamp)}
-                      </span>
+                      {/* Timestamp & Read Receipts */}
+                      <div className="flex items-center justify-end space-x-1 mt-1 text-[9px] opacity-75 font-mono">
+                        {msg.isEdited && <span className="italic text-slate-400">(edited)</span>}
+                        <span>{formatTimestamp(msg.timestamp)}</span>
+                        {isMe && !msg.isUnsent && (
+                          <span title={hasBeenReadByPeers ? 'Read by peers' : 'Sent'}>
+                            {hasBeenReadByPeers ? (
+                              <CheckCheck className="w-3 h-3 text-sky-400 inline ml-0.5" />
+                            ) : (
+                              <Check className="w-3 h-3 text-slate-400 inline ml-0.5" />
+                            )}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Reactions Pill Display */}
@@ -832,46 +958,66 @@ export const ChatBox: React.FC = () => {
                 </div>
 
                 {/* Action Toolbar - Desktop Hover + Mobile Touch Fix */}
-                <div
-                  className={`absolute top-0 transition-all flex items-center space-x-1 bg-slate-900/95 border border-white/15 rounded-full px-2 py-1 shadow-xl z-10 ${
-                    isMe ? 'right-[82%]' : 'left-[82%]'
-                  } ${
-                    isMobileSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
-                  }`}
-                >
-                  <button
-                    onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
-                    className="p-1 text-slate-400 hover:text-amber-400 rounded-full transition"
-                    title="Add Reaction"
-                  >
-                    <Smile className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => setReplyingTo(msg)}
-                    className="p-1 text-slate-400 hover:text-indigo-400 rounded-full transition"
-                    title="Reply"
-                  >
-                    <Reply className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => handleTogglePin(msg.id)}
-                    className={`p-1 rounded-full transition ${
-                      msg.isPinned ? 'text-indigo-400' : 'text-slate-400 hover:text-indigo-300'
+                {!msg.isUnsent && (
+                  <div
+                    className={`absolute top-0 transition-all flex items-center space-x-1 bg-slate-900/95 border border-white/15 rounded-full px-2 py-1 shadow-xl z-10 ${
+                      isMe ? 'right-[82%]' : 'left-[82%]'
+                    } ${
+                      isMobileSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
                     }`}
-                    title={msg.isPinned ? 'Unpin Message' : 'Pin Message'}
                   >
-                    <Pin className="w-3.5 h-3.5" />
-                  </button>
-                  {isMe && (
                     <button
-                      onClick={() => handleDelete(msg.id)}
-                      className="p-1 text-slate-400 hover:text-rose-400 rounded-full transition"
-                      title="Delete Message"
+                      onClick={() => setShowEmojiPicker(showEmojiPicker === msg.id ? null : msg.id)}
+                      className="p-1 text-slate-400 hover:text-amber-400 rounded-full transition"
+                      title="Add Reaction"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Smile className="w-3.5 h-3.5" />
                     </button>
-                  )}
-                </div>
+                    <button
+                      onClick={() => setReplyingTo(msg)}
+                      className="p-1 text-slate-400 hover:text-indigo-400 rounded-full transition"
+                      title="Reply"
+                    >
+                      <Reply className="w-3.5 h-3.5" />
+                    </button>
+                    {isMe && (
+                      <button
+                        onClick={() => handleStartEdit(msg)}
+                        className="p-1 text-slate-400 hover:text-indigo-300 rounded-full transition"
+                        title="Edit Message"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    {isMe && (
+                      <button
+                        onClick={() => handleUnsend(msg.id)}
+                        className="p-1 text-slate-400 hover:text-amber-400 rounded-full transition"
+                        title="Unsend Message"
+                      >
+                        <Undo2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleTogglePin(msg.id)}
+                      className={`p-1 rounded-full transition ${
+                        msg.isPinned ? 'text-indigo-400' : 'text-slate-400 hover:text-indigo-300'
+                      }`}
+                      title={msg.isPinned ? 'Unpin Message' : 'Pin Message'}
+                    >
+                      <Pin className="w-3.5 h-3.5" />
+                    </button>
+                    {(isMe || isHost) && (
+                      <button
+                        onClick={() => handleDelete(msg.id)}
+                        className="p-1 text-slate-400 hover:text-rose-400 rounded-full transition"
+                        title="Delete Message"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Categorized Quick Emoji Popover */}
                 {showEmojiPicker === msg.id && (
@@ -933,6 +1079,19 @@ export const ChatBox: React.FC = () => {
             onClick={() => setReplyingTo(null)}
             className="text-slate-400 hover:text-white p-1 rounded-full"
           >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Edit Mode Preview */}
+      {editingMsgId && (
+        <div className="bg-amber-950/50 px-4 py-2 border-t border-amber-500/30 flex items-center justify-between shrink-0 text-xs">
+          <div className="flex items-center space-x-2 font-bold text-amber-300">
+            <Edit2 className="w-3.5 h-3.5" />
+            <span>Editing message</span>
+          </div>
+          <button onClick={handleCancelEdit} className="text-slate-400 hover:text-white p-1 rounded-full">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -1185,17 +1344,19 @@ export const ChatBox: React.FC = () => {
             <input
               ref={inputRef}
               type="text"
-              value={inputText}
-              onChange={handleInputChange}
+              value={editingMsgId ? editingText : inputText}
+              onChange={(e) => (editingMsgId ? setEditingText(e.target.value) : handleInputChange(e))}
               onKeyDown={handleInputKeyDown}
-              placeholder="Type message or /poll, /8ball, /dice..."
-              className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+              placeholder={editingMsgId ? 'Edit message...' : 'Type message or /poll, /8ball, /dice...'}
+              className={`w-full bg-white/5 border rounded-xl pl-4 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none transition ${
+                editingMsgId ? 'border-amber-500/60 focus:border-amber-400' : 'border-white/10 focus:border-indigo-500'
+              }`}
             />
           </div>
 
           <button
             type="submit"
-            disabled={!inputText.trim() && !imageUrlInput.trim()}
+            disabled={!inputText.trim() && !editingText.trim() && !imageUrlInput.trim()}
             className="w-10 h-10 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 disabled:opacity-40 text-white flex items-center justify-center shadow-lg transition transform active:scale-95 shrink-0"
           >
             <Send className="w-4 h-4" />

@@ -348,11 +348,36 @@ class PeerService {
         break;
       }
 
+      case 'CHAT_EDIT': {
+        const { msgId, newText } = payload;
+        useChatStore.getState().editMessage(msgId, newText);
+        break;
+      }
+
+      case 'CHAT_UNSEND': {
+        const { msgId } = payload;
+        useChatStore.getState().unsendMessage(msgId);
+        break;
+      }
+
+      case 'CHAT_READ_RECEIPT': {
+        const { userId } = payload;
+        useChatStore.getState().markMessagesRead(userId);
+        break;
+      }
+
+      case 'VANISH_MODE_TOGGLE': {
+        const { enabled } = payload;
+        useChatStore.getState().toggleVanishMode(enabled);
+        break;
+      }
+
       case 'TYPING_INDICATOR': {
         const { userId, name, isTyping } = payload;
         useChatStore.getState().setTypingUser(userId, name, isTyping);
         break;
       }
+
 
       case 'GAME_STATE_CHANGE': {
         const { gameType, state } = payload;

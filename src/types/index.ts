@@ -81,6 +81,12 @@ export interface ChatMessage {
   poll?: ChatPoll;
   isPinned?: boolean;
   isSystem?: boolean;
+  readBy?: string[]; // Array of user IDs who have read this message
+  isEdited?: boolean;
+  editedAt?: number;
+  isUnsent?: boolean;
+  isVanish?: boolean;
+  vanishSeconds?: number;
 }
 
 // Game Types
@@ -124,6 +130,10 @@ export type SyncEventType =
   | 'CHAT_MESSAGE'
   | 'CHAT_REACTION'
   | 'CHAT_DELETE'
+  | 'CHAT_EDIT'
+  | 'CHAT_READ_RECEIPT'
+  | 'CHAT_UNSEND'
+  | 'VANISH_MODE_TOGGLE'
   | 'CHAT_POLL_VOTE'
   | 'CHAT_PIN_TOGGLE'
   | 'TYPING_INDICATOR'
@@ -135,6 +145,7 @@ export type SyncEventType =
   | 'SKIP_VOTE_CHANGE'
   | 'REQUEST_MEDIA_STREAM'
   | 'PULL_PEER_STREAM';
+
 
 
 export interface SyncMessagePayload {
