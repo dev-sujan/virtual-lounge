@@ -18,6 +18,10 @@ interface VideoState {
   isVideoCallActive: boolean;
   remoteStreams: RemoteStream[];
 
+  // Screen Share & Layout Enhancements
+  screenQuality: '1080p' | '720p';
+  pinnedStreamId: string | null;
+
   // Floating Window UI
   isMinimized: boolean;
   isFullscreen: boolean;
@@ -29,6 +33,8 @@ interface VideoState {
   toggleMic: () => void;
   toggleCamera: () => void;
   toggleScreenShare: () => Promise<void>;
+  setScreenQuality: (quality: '1080p' | '720p') => void;
+  setPinnedStreamId: (id: string | null) => void;
   setVideoCallActive: (active: boolean) => void;
   addRemoteStream: (remote: RemoteStream) => void;
   removeRemoteStream: (peerId: string) => void;
@@ -49,11 +55,17 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   isScreenSharing: false,
   isVideoCallActive: false,
   remoteStreams: [],
+  screenQuality: '1080p',
+  pinnedStreamId: null,
 
   isMinimized: false,
   isFullscreen: false,
   position: { x: 20, y: 80 },
   activePeerInFocus: null,
+
+  setScreenQuality: (quality) => set({ screenQuality: quality }),
+  setPinnedStreamId: (id) => set({ pinnedStreamId: id }),
+
 
   setLocalStream: (stream) => set({ localStream: stream }),
 
@@ -177,8 +189,11 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   toggleScreenShare: async () => {
-    const { isScreenSharing, localStream } = get();
+    const { isScreenSharing, localStream, screenQuality } = get();
     const { peerService } = await import('../services/webrtc/peerService');
+    const { useToastStore } = await import('./useToastStore');
+    const { useRoomStore } = await import('./useRoomStore');
+    const currentUser = useRoomStore.getState().currentUser;
 
     if (isScreenSharing) {
       // Revert to user camera media stream if available
@@ -192,7 +207,15 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       }
     } else {
       try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        const videoConstraints = screenQuality === '1080p'
+          ? { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } }
+          : { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
+
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: videoConstraints,
+          audio: { echoCancellation: true, noiseSuppression: true },
+        });
+
         const screenVideoTrack = screenStream.getVideoTracks()[0];
 
         // Retain current mic audio track so peers can hear user during screen share
@@ -227,11 +250,27 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         set({ localStream: combinedStream, isScreenSharing: true, isCameraOn: true });
         peerService.updateLocalStreamTrack(combinedStream);
         peerService.callAllPeers(combinedStream);
+
+        useToastStore.getState().addToast({
+          category: 'media',
+          title: '🖥️ Screen Sharing Started',
+          message: `Streaming at ${screenQuality === '1080p' ? '1080p 60fps' : '720p 30fps'} with system audio`,
+        });
+
+        if (currentUser) {
+          peerService.broadcast('MEDIA_STATUS_CHANGE', {
+            userId: currentUser.id,
+            userName: currentUser.displayName,
+            isCameraOn: true,
+            isScreenSharing: true,
+          });
+        }
       } catch (err) {
         console.warn('Screen share canceled or not supported:', err);
       }
     }
   },
+
 
   setVideoCallActive: (active) => set({ isVideoCallActive: active }),
 

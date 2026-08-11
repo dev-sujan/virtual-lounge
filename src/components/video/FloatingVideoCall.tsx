@@ -14,7 +14,11 @@ import {
   PhoneOff,
   Move,
   Monitor,
+  Pin,
+  ExternalLink,
+  Settings,
 } from 'lucide-react';
+
 
 export const FloatingVideoCall: React.FC = () => {
   const {
@@ -24,12 +28,16 @@ export const FloatingVideoCall: React.FC = () => {
     isScreenSharing,
     isVideoCallActive,
     remoteStreams,
+    screenQuality,
+    pinnedStreamId,
     isMinimized,
     isFullscreen,
     position,
     toggleMic,
     toggleCamera,
     toggleScreenShare,
+    setScreenQuality,
+    setPinnedStreamId,
     toggleMinimized,
     toggleFullscreen,
     setPosition,
@@ -41,6 +49,9 @@ export const FloatingVideoCall: React.FC = () => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [fitMode, setFitMode] = useState<'cover' | 'contain'>(isScreenSharing ? 'contain' : 'cover');
+
   const dragOffset = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -49,6 +60,12 @@ export const FloatingVideoCall: React.FC = () => {
       localVideoRef.current.play().catch((e) => console.warn('Local video play issue:', e));
     }
   }, [localStream, isCameraOn, isScreenSharing]);
+
+  useEffect(() => {
+    if (isScreenSharing) {
+      setFitMode('contain');
+    }
+  }, [isScreenSharing]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (isFullscreen || isMinimized) return;
@@ -71,6 +88,20 @@ export const FloatingVideoCall: React.FC = () => {
     setIsDragging(false);
   };
 
+  const handleRequestPiP = async () => {
+    if (localVideoRef.current && document.pictureInPictureEnabled) {
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else {
+          await localVideoRef.current.requestPictureInPicture();
+        }
+      } catch (err) {
+        console.warn('Picture-in-Picture error:', err);
+      }
+    }
+  };
+
   if (!isVideoCallActive) return null;
 
   if (isMinimized) {
@@ -82,7 +113,7 @@ export const FloatingVideoCall: React.FC = () => {
         <div className="flex items-center space-x-2">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-xs font-bold text-white">
-            Live Call ({remoteStreams.length + 1} connected)
+            {isScreenSharing ? 'Screen Share Active' : `Video Call (${remoteStreams.length + 1})`}
           </span>
         </div>
         <button
@@ -95,6 +126,8 @@ export const FloatingVideoCall: React.FC = () => {
       </div>
     );
   }
+
+  const isLocalPinned = pinnedStreamId === 'local';
 
   return (
     <div
@@ -110,19 +143,42 @@ export const FloatingVideoCall: React.FC = () => {
       className={`fixed z-50 transition-all duration-150 ease-out select-none ${
         isFullscreen
           ? 'bg-black/95 flex flex-col p-4'
+          : isScreenSharing || pinnedStreamId
+          ? 'w-80 sm:w-96 rounded-2xl glass-card border border-indigo-500/30 shadow-2xl overflow-hidden'
           : 'w-72 sm:w-80 rounded-2xl glass-card border border-white/20 shadow-2xl overflow-hidden'
       }`}
     >
-      <div className="p-2.5 bg-slate-900/80 border-b border-white/10 flex items-center justify-between cursor-move touch-none">
+      {/* Header Bar */}
+      <div className="p-2.5 bg-slate-900/90 border-b border-white/10 flex items-center justify-between cursor-move touch-none">
         <div className="flex items-center space-x-2 text-xs font-semibold text-white">
           <Move className="w-3.5 h-3.5 text-indigo-400" />
-          <span>P2P Video Lounge</span>
+          <span>{isScreenSharing ? '🖥️ Screen Sharing' : 'P2P Video Lounge'}</span>
           <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 font-mono">
             {remoteStreams.length + 1} online
           </span>
         </div>
 
         <div className="flex items-center space-x-1">
+          {/* PiP Button */}
+          <button
+            onClick={handleRequestPiP}
+            className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10"
+            title="Pop-out Picture-in-Picture"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Quality Settings Toggle */}
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`p-1 rounded hover:bg-white/10 transition ${
+              showSettings ? 'text-indigo-400' : 'text-slate-400 hover:text-white'
+            }`}
+            title="Screen Share Quality & Settings"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+
           <button
             onClick={toggleMinimized}
             className="p-1 text-slate-400 hover:text-white rounded"
@@ -147,15 +203,72 @@ export const FloatingVideoCall: React.FC = () => {
         </div>
       </div>
 
-      <div className={`grid gap-2 p-2 bg-black/60 ${isFullscreen ? 'flex-1 grid-cols-1 sm:grid-cols-2' : 'h-52 grid-cols-1'}`}>
-        <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-white/10 flex items-center justify-center">
+      {/* Screen Share Settings Popover */}
+      {showSettings && (
+        <div className="p-3 bg-slate-900 border-b border-white/10 space-y-2 text-xs animate-fadeIn">
+          <div className="flex items-center justify-between text-[11px] font-bold text-indigo-300">
+            <span>Screen Share Quality</span>
+            <span className="font-mono text-white">{screenQuality}</span>
+          </div>
+
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setScreenQuality('1080p')}
+              className={`flex-1 py-1 rounded-lg text-[11px] font-bold border transition ${
+                screenQuality === '1080p'
+                  ? 'bg-indigo-600 border-indigo-400 text-white'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+              }`}
+            >
+              1080p (60fps Gaming)
+            </button>
+            <button
+              onClick={() => setScreenQuality('720p')}
+              className={`flex-1 py-1 rounded-lg text-[11px] font-bold border transition ${
+                screenQuality === '720p'
+                  ? 'bg-indigo-600 border-indigo-400 text-white'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+              }`}
+            >
+              720p (30fps Docs)
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-[11px] text-slate-400">Aspect Ratio Fit</span>
+            <button
+              onClick={() => setFitMode(fitMode === 'cover' ? 'contain' : 'cover')}
+              className="text-[11px] text-indigo-400 hover:text-indigo-300 font-bold"
+            >
+              {fitMode === 'contain' ? 'Fit (Contain)' : 'Fill (Crop)'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Video Grid / Stage View */}
+      <div
+        className={`grid gap-2 p-2 bg-black/70 ${
+          isFullscreen ? 'flex-1 grid-cols-1 sm:grid-cols-2' : isScreenSharing ? 'h-64 grid-cols-1' : 'h-52 grid-cols-1'
+        }`}
+      >
+        {/* Local Stream Card */}
+        <div
+          className={`relative rounded-xl overflow-hidden bg-slate-900 border transition-all flex items-center justify-center group ${
+            isLocalPinned
+              ? 'ring-2 ring-indigo-400 border-indigo-400'
+              : 'border-white/10 hover:border-indigo-500/40'
+          }`}
+        >
           {localStream && isCameraOn ? (
             <video
               ref={localVideoRef}
               autoPlay
               playsInline
               muted
-              className={`w-full h-full object-cover ${isScreenSharing ? '' : 'transform -scale-x-100'}`}
+              className={`w-full h-full ${fitMode === 'contain' ? 'object-contain' : 'object-cover'} ${
+                isScreenSharing ? '' : 'transform -scale-x-100'
+              }`}
             />
           ) : (
             <div className="flex flex-col items-center justify-center p-4">
@@ -169,17 +282,38 @@ export const FloatingVideoCall: React.FC = () => {
             </div>
           )}
 
+          {/* Local Overlay Badges & Controls */}
           <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur text-[10px] font-semibold text-white flex items-center space-x-1">
-            <span>{isScreenSharing ? 'Your Screen' : 'You'}</span>
+            <span>{isScreenSharing ? 'Your Screen Share' : 'You'}</span>
             {!isMicOn && <MicOff className="w-2.5 h-2.5 text-rose-400" />}
+          </div>
+
+          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition flex items-center space-x-1">
+            <button
+              onClick={() => setPinnedStreamId(isLocalPinned ? null : 'local')}
+              className={`p-1.5 rounded-lg backdrop-blur transition ${
+                isLocalPinned ? 'bg-indigo-600 text-white' : 'bg-black/60 text-slate-300 hover:text-white'
+              }`}
+              title={isLocalPinned ? 'Unpin Stage View' : 'Pin to Stage View'}
+            >
+              <Pin className="w-3 h-3" />
+            </button>
           </div>
         </div>
 
+        {/* Remote Streams */}
         {remoteStreams.map((remote) => (
-          <RemoteVideoItem key={remote.peerId} remote={remote} />
+          <RemoteVideoItem
+            key={remote.peerId}
+            remote={remote}
+            fitMode={fitMode}
+            isPinned={pinnedStreamId === remote.peerId}
+            onTogglePin={() => setPinnedStreamId(pinnedStreamId === remote.peerId ? null : remote.peerId)}
+          />
         ))}
       </div>
 
+      {/* Control Buttons Bar */}
       <div className="p-3 bg-slate-900/90 border-t border-white/10 flex items-center justify-center space-x-3">
         <button
           onClick={toggleMic}
@@ -231,9 +365,12 @@ export const FloatingVideoCall: React.FC = () => {
 
 interface RemoteVideoItemProps {
   remote: RemoteStream;
+  fitMode: 'cover' | 'contain';
+  isPinned: boolean;
+  onTogglePin: () => void;
 }
 
-const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote }) => {
+const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote, fitMode, isPinned, onTogglePin }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [, setTrackUpdateCount] = useState(0);
 
@@ -261,9 +398,20 @@ const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote }) => {
   }, [remote.stream, remote.isCameraOn, remote.stream?.getTracks().length]);
 
   return (
-    <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-white/10 flex items-center justify-center">
+    <div
+      className={`relative rounded-xl overflow-hidden bg-slate-900 border transition-all flex items-center justify-center group ${
+        isPinned
+          ? 'ring-2 ring-indigo-400 border-indigo-400'
+          : 'border-white/10 hover:border-indigo-500/40'
+      }`}
+    >
       {remote.isCameraOn ? (
-        <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          className={`w-full h-full ${fitMode === 'contain' ? 'object-contain' : 'object-cover'}`}
+        />
       ) : (
         <div className="flex flex-col items-center justify-center p-4">
           <div
@@ -279,6 +427,18 @@ const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote }) => {
       <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur text-[10px] font-semibold text-white flex items-center space-x-1">
         <span>{remote.userName}</span>
         {!remote.isMicOn && <MicOff className="w-2.5 h-2.5 text-rose-400" />}
+      </div>
+
+      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition flex items-center space-x-1">
+        <button
+          onClick={onTogglePin}
+          className={`p-1.5 rounded-lg backdrop-blur transition ${
+            isPinned ? 'bg-indigo-600 text-white' : 'bg-black/60 text-slate-300 hover:text-white'
+          }`}
+          title={isPinned ? 'Unpin Stage View' : 'Pin to Stage View'}
+        >
+          <Pin className="w-3 h-3" />
+        </button>
       </div>
     </div>
   );
