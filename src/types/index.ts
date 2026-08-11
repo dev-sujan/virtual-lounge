@@ -84,7 +84,8 @@ export interface ChatMessage {
 }
 
 // Game Types
-export type GameType = 'none' | 'tictactoe' | 'rps' | 'connectfour';
+export type GameType = 'none' | 'tictactoe' | 'rps' | 'connectfour' | 'trivia';
+
 
 export interface TicTacToeState {
   board: (string | null)[]; // 9 cells

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useRoomStore } from '../../stores/useRoomStore';
 import { useVideoStore } from '../../stores/useVideoStore';
+import { AmbientSoundPlayer } from '../common/AmbientSoundPlayer';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
-import { Lock, Share2, LogOut, Video, Copy, Check } from 'lucide-react';
+import { Lock, Share2, LogOut, Video, Copy, Check, Activity } from 'lucide-react';
 
 export const RoomHeader: React.FC = () => {
   const { roomId, password, peers } = useRoomStore();
@@ -66,12 +67,18 @@ export const RoomHeader: React.FC = () => {
                 <span>{activeCount} Online</span>
               </span>
               <span className="text-slate-600">•</span>
-              <span className="text-slate-400 truncate">Private Lounge</span>
+              <span className="text-indigo-300 font-mono flex items-center space-x-1 font-semibold">
+                <Activity className="w-3 h-3 text-indigo-400" />
+                <span>P2P Synced</span>
+              </span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center space-x-1.5 sm:space-x-2">
+          {/* Ambient Sounds Player */}
+          <AmbientSoundPlayer />
+
           <button
             onClick={handleStartVideo}
             className={`p-2 rounded-xl transition flex items-center space-x-1 text-xs font-semibold ${
@@ -102,6 +109,7 @@ export const RoomHeader: React.FC = () => {
           </button>
         </div>
       </header>
+
 
       <ShareModal
         isOpen={isShareOpen}

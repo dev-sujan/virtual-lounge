@@ -112,10 +112,17 @@ export const Lounge: React.FC = () => {
           {activeTab === 'games' && <GameSelector />}
           {activeTab === 'members' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-bold text-white flex items-center space-x-2">
-                <Users className="w-5 h-5 text-indigo-400" />
-                <span>Room Participants</span>
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-bold text-white flex items-center space-x-2">
+                  <Users className="w-5 h-5 text-indigo-400" />
+                  <span>Room Participants ({(peers?.length || 0) + 1})</span>
+                </h3>
+                {currentUser?.isHost && (
+                  <span className="text-xs bg-amber-500/20 text-amber-300 font-mono px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                    👑 Host Controls Active
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {currentUser && (
@@ -131,29 +138,29 @@ export const Lounge: React.FC = () => {
                         <h4 className="text-sm font-bold text-white flex items-center space-x-1.5">
                           <span>{currentUser.displayName}</span>
                           <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-mono px-2 py-0.2 rounded-full border border-indigo-500/30">
-                            {currentUser.isHost ? 'Host' : 'You'}
+                            {currentUser.isHost ? 'Host (You)' : 'You'}
                           </span>
                         </h4>
-                        <span className="text-[11px] text-emerald-400 font-semibold">Online</span>
+                        <span className="text-[11px] text-emerald-400 font-semibold">Online • P2P Connected</span>
                       </div>
                     </div>
                   </div>
                 )}
 
                 {peers.map((peer) => (
-                  <div key={peer.id} className="glass-card p-4 rounded-2xl border border-white/10 flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
+                  <div key={peer.id} className="glass-card p-4 rounded-2xl border border-white/10 flex items-center justify-between group">
+                    <div className="flex items-center space-x-3 overflow-hidden">
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow shrink-0"
                         style={{ backgroundColor: peer.avatarColor }}
                       >
                         {getInitials(peer.displayName)}
                       </div>
-                      <div>
-                        <h4 className="text-sm font-bold text-white flex items-center space-x-1.5">
-                          <span>{peer.displayName}</span>
+                      <div className="overflow-hidden">
+                        <h4 className="text-sm font-bold text-white flex items-center space-x-1.5 truncate">
+                          <span className="truncate">{peer.displayName}</span>
                           {peer.isHost && (
-                            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-mono px-2 py-0.2 rounded-full">
+                            <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-mono px-2 py-0.2 rounded-full shrink-0">
                               Host
                             </span>
                           )}
@@ -161,11 +168,29 @@ export const Lounge: React.FC = () => {
                         <span className="text-[11px] text-emerald-400 font-semibold">Online</span>
                       </div>
                     </div>
+
+                    {currentUser?.isHost && (
+                      <div className="flex items-center space-x-1 shrink-0">
+                        <button
+                          onClick={async () => {
+                            const { useRoomStore } = await import('../stores/useRoomStore');
+                            useRoomStore.getState().removePeer(peer.id);
+                            const { peerService } = await import('../services/webrtc/peerService');
+                            peerService.broadcast('LEAVE_ROOM', { userId: peer.id, userName: peer.displayName });
+                          }}
+                          className="px-2 py-1 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 border border-rose-500/20 text-xs font-semibold transition"
+                          title="Remove peer from room"
+                        >
+                          Kick
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
+
         </div>
       </div>
 

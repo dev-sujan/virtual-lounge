@@ -3,13 +3,15 @@ import { useGameStore } from '../../stores/useGameStore';
 import { TicTacToe } from './TicTacToe';
 import { RockPaperScissors } from './RockPaperScissors';
 import { ConnectFour } from './ConnectFour';
-import { Gamepad2, Grid, Scissors, Disc } from 'lucide-react';
+import { MusicTrivia } from './MusicTrivia';
+import { Gamepad2, Grid, Scissors, Disc, Trophy } from 'lucide-react';
 import type { GameType } from '../../types';
 
 export const GameSelector: React.FC = () => {
   const { activeGame, setActiveGame } = useGameStore();
 
   const games: { id: GameType; title: string; desc: string; icon: any }[] = [
+    { id: 'trivia', title: 'Music Trivia', desc: 'Real-time quiz with live scoreboards', icon: Trophy },
     { id: 'tictactoe', title: 'Tic-Tac-Toe', desc: 'Classic 3x3 strategy grid', icon: Grid },
     { id: 'rps', title: 'Rock Paper Scissors', desc: 'Simultaneous action showdown', icon: Scissors },
     { id: 'connectfour', title: 'Connect Four', desc: '4-in-a-row drop battle', icon: Disc },
@@ -37,7 +39,7 @@ export const GameSelector: React.FC = () => {
       </div>
 
       {activeGame === 'none' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {games.map((g) => {
             const Icon = g.icon;
             return (
@@ -61,6 +63,7 @@ export const GameSelector: React.FC = () => {
         </div>
       ) : (
         <div className="animate-fadeIn">
+          {activeGame === 'trivia' && <MusicTrivia onBack={() => setActiveGame('none')} />}
           {activeGame === 'tictactoe' && <TicTacToe />}
           {activeGame === 'rps' && <RockPaperScissors />}
           {activeGame === 'connectfour' && <ConnectFour />}
@@ -69,3 +72,4 @@ export const GameSelector: React.FC = () => {
     </div>
   );
 };
+
