@@ -22,8 +22,25 @@ import {
   Eye,
   Pin,
   BarChart2,
+  Terminal,
 } from 'lucide-react';
 
+interface SlashCommandInfo {
+  command: string;
+  syntax: string;
+  description: string;
+  icon: string;
+}
+
+const SLASH_COMMANDS_CATALOG: SlashCommandInfo[] = [
+  { command: '/poll', syntax: '/poll "Question" "Option A" "Option B"', description: 'Create an interactive chat poll', icon: '📊' },
+  { command: '/8ball', syntax: '/8ball "Will we finish playlist?"', description: 'Ask Magic 8-Ball a fortune question', icon: '🎱' },
+  { command: '/dice', syntax: '/dice', description: 'Roll a random 6-sided die', icon: '🎲' },
+  { command: '/coin', syntax: '/coin', description: 'Flip a coin (Heads or Tails)', icon: '🪙' },
+  { command: '/shrug', syntax: '/shrug', description: 'Append ¯\\_(ツ)_/¯', icon: '¯\\_(ツ)_/¯' },
+  { command: '/tableflip', syntax: '/tableflip', description: 'Append (╯°□°）╯︵ ┻━┻', icon: '(╯°□°）╯' },
+  { command: '/unflip', syntax: '/unflip', description: 'Append ┬─┬ノ( º _ ºノ)', icon: '┬─┬' },
+];
 
 const CATEGORIZED_EMOJIS: Record<string, string[]> = {
   '🎉 Party & Vibe': ['🔥', '💃', '🎵', '🎉', '🚀', '💯', '✨', '🙌', '🎶', '🥳', '🍸', '🎧'],
@@ -61,6 +78,10 @@ export const ChatBox: React.FC = () => {
   const [isTypingLocal, setIsTypingLocal] = useState(false);
   const [selectedEmojiCat, setSelectedEmojiCat] = useState<string>('🎉 Party & Vibe');
 
+  // Slash Command Suggestions state
+  const [showSlashSuggestions, setShowSlashSuggestions] = useState(false);
+  const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
+
   // Mobile active action menu state (for touch devices where hover isn't supported)
   const [mobileActiveMsgId, setMobileActiveMsgId] = useState<string | null>(null);
 
@@ -81,6 +102,7 @@ export const ChatBox: React.FC = () => {
 
   const typingTimeoutRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const {
     messages,
@@ -101,7 +123,14 @@ export const ChatBox: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
 
-  // Handle Extended Slash Commands
+  // Filter matching slash commands based on input
+  const matchingSlashCommands = inputText.startsWith('/')
+    ? SLASH_COMMANDS_CATALOG.filter((c) =>
+        c.command.toLowerCase().startsWith(inputText.trim().toLowerCase())
+      )
+    : [];
+
+  // Handle Extended Slash Commands Execution
   const processSlashCommands = (text: string): { processedText: string; isAction?: string; poll?: any } => {
     const trimmed = text.trim();
 
@@ -158,6 +187,13 @@ export const ChatBox: React.FC = () => {
     const val = e.target.value;
     setInputText(val);
 
+    if (val.startsWith('/')) {
+      setShowSlashSuggestions(true);
+      setSelectedSlashIndex(0);
+    } else {
+      setShowSlashSuggestions(false);
+    }
+
     if (!currentUser) return;
 
     if (!isTypingLocal) {
@@ -179,6 +215,47 @@ export const ChatBox: React.FC = () => {
         isTyping: false,
       });
     }, 2000);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showSlashSuggestions && matchingSlashCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSlashIndex((prev) => (prev + 1) % matchingSlashCommands.length);
+        return;
+      }
+
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSlashIndex((prev) => (prev - 1 + matchingSlashCommands.length) % matchingSlashCommands.length);
+        return;
+      }
+
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        const targetCmd = matchingSlashCommands[selectedSlashIndex];
+        if (targetCmd) {
+          e.preventDefault();
+          applySlashCommand(targetCmd);
+          return;
+        }
+      }
+
+      if (e.key === 'Escape') {
+        setShowSlashSuggestions(false);
+        return;
+      }
+    }
+  };
+
+  const applySlashCommand = (cmd: SlashCommandInfo) => {
+    setInputText(cmd.syntax);
+    setShowSlashSuggestions(false);
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.setSelectionRange(cmd.syntax.length, cmd.syntax.length);
+      }
+    }, 50);
   };
 
   const handleSendMessage = (e?: React.FormEvent, customImg?: string, customPoll?: any) => {
@@ -222,6 +299,7 @@ export const ChatBox: React.FC = () => {
 
     setInputText('');
     setImageUrlInput('');
+    setShowSlashSuggestions(false);
     setReplyingTo(null);
     setShowAttachMenu(false);
 
@@ -860,6 +938,53 @@ export const ChatBox: React.FC = () => {
         </div>
       )}
 
+      {/* Slash Command Suggestions Popover Deck */}
+      {showSlashSuggestions && matchingSlashCommands.length > 0 && (
+        <div className="absolute bottom-16 left-3 right-3 z-30 glass-card rounded-2xl border border-indigo-500/40 bg-slate-900/95 shadow-2xl p-2 animate-fadeIn space-y-1 max-h-56 overflow-y-auto">
+          <div className="px-2.5 py-1.5 flex justify-between items-center text-[10px] uppercase font-bold text-indigo-300 border-b border-white/10">
+            <span className="flex items-center space-x-1.5">
+              <Terminal className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Slash Commands</span>
+            </span>
+            <span className="text-slate-400 font-mono">Use ↑↓ & Tab / Enter to select</span>
+          </div>
+
+          {matchingSlashCommands.map((cmd, idx) => {
+            const isSelected = idx === selectedSlashIndex;
+            return (
+              <button
+                key={cmd.command}
+                type="button"
+                onClick={() => applySlashCommand(cmd)}
+                onMouseEnter={() => setSelectedSlashIndex(idx)}
+                className={`w-full text-left p-2 rounded-xl transition flex items-center justify-between ${
+                  isSelected
+                    ? 'bg-indigo-600/90 text-white shadow-md'
+                    : 'hover:bg-white/5 text-slate-200'
+                }`}
+              >
+                <div className="flex items-center space-x-2.5 overflow-hidden">
+                  <span className="text-base shrink-0">{cmd.icon}</span>
+                  <div className="overflow-hidden">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-bold font-mono text-xs text-indigo-200">{cmd.command}</span>
+                      <span className="text-[10px] opacity-75 font-mono truncate text-slate-300">{cmd.syntax}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 opacity-90 truncate">{cmd.description}</p>
+                  </div>
+                </div>
+
+                {isSelected && (
+                  <span className="text-[10px] font-mono bg-white/20 px-2 py-0.5 rounded text-white shrink-0">
+                    Tab / ↵
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Attachment Popover Panel (Stickers, GIFs, Poll Creator, URL) */}
       {showAttachMenu && (
         <div className="p-4 bg-slate-900/95 border-t border-white/10 space-y-3 animate-fadeIn z-20 shrink-0">
@@ -1058,9 +1183,11 @@ export const ChatBox: React.FC = () => {
 
           <div className="flex-1 relative flex items-center">
             <input
+              ref={inputRef}
               type="text"
               value={inputText}
               onChange={handleInputChange}
+              onKeyDown={handleInputKeyDown}
               placeholder="Type message or /poll, /8ball, /dice..."
               className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
             />
