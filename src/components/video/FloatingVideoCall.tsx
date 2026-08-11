@@ -243,9 +243,23 @@ const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote }) => {
 
   return (
     <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-white/10 flex items-center justify-center">
-      <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur text-[10px] font-semibold text-white">
-        {remote.userName}
+      {remote.isCameraOn ? (
+        <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+      ) : (
+        <div className="flex flex-col items-center justify-center p-4">
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg mb-1 shadow"
+            style={{ backgroundColor: remote.avatarColor || '#6366f1' }}
+          >
+            {getInitials(remote.userName || 'Peer')}
+          </div>
+          <span className="text-[10px] text-slate-400">Camera Off</span>
+        </div>
+      )}
+
+      <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur text-[10px] font-semibold text-white flex items-center space-x-1">
+        <span>{remote.userName}</span>
+        {!remote.isMicOn && <MicOff className="w-2.5 h-2.5 text-rose-400" />}
       </div>
     </div>
   );

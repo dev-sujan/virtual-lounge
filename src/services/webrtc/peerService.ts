@@ -6,6 +6,7 @@ import { useMusicStore } from '../../stores/useMusicStore';
 import { useChatStore } from '../../stores/useChatStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useVideoStore } from '../../stores/useVideoStore';
+import { useToastStore } from '../../stores/useToastStore';
 import { playMessageSound, playReactionSound } from '../../utils/soundUtils';
 
 type MessageHandler = (msg: SyncMessagePayload) => void;
@@ -177,6 +178,11 @@ class PeerService {
         }
 
         useRoomStore.getState().addPeer(reqUser);
+        useToastStore.getState().addToast({
+          category: 'info',
+          title: `${reqUser.displayName} joined the lounge`,
+          message: 'Real-time peer connected',
+        });
 
         useChatStore.getState().addMessage({
           id: 'sys_' + Date.now(),
@@ -296,9 +302,38 @@ class PeerService {
         break;
       }
 
+      case 'MEDIA_STATUS_CHANGE': {
+        const { userId, userName, isMicOn, isCameraOn } = msg.payload;
+        useVideoStore.getState().updateRemoteStatusByUserId(userId, {
+          ...(isMicOn !== undefined && { isMicOn }),
+          ...(isCameraOn !== undefined && { isCameraOn }),
+        });
+
+        const toastStore = useToastStore.getState();
+        if (isMicOn !== undefined) {
+          toastStore.addToast({
+            category: 'media',
+            title: `${userName || 'Peer'} ${isMicOn ? 'unmuted' : 'muted'} microphone`,
+            icon: isMicOn ? 'mic-on' : 'mic-off',
+          });
+        }
+        if (isCameraOn !== undefined) {
+          toastStore.addToast({
+            category: 'media',
+            title: `${userName || 'Peer'} turned ${isCameraOn ? 'on' : 'off'} camera`,
+            icon: isCameraOn ? 'video-on' : 'video-off',
+          });
+        }
+        break;
+      }
+
       case 'LEAVE_ROOM': {
         const { userId, userName } = msg.payload;
         useRoomStore.getState().removePeer(userId);
+        useToastStore.getState().addToast({
+          category: 'warning',
+          title: `${userName || 'A user'} left the lounge`,
+        });
         useChatStore.getState().addMessage({
           id: 'sys_' + Date.now(),
           senderId: 'system',

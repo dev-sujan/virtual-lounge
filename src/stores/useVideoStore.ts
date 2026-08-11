@@ -33,6 +33,7 @@ interface VideoState {
   addRemoteStream: (remote: RemoteStream) => void;
   removeRemoteStream: (peerId: string) => void;
   updateRemoteStatus: (peerId: string, updates: Partial<RemoteStream>) => void;
+  updateRemoteStatusByUserId: (userId: string, updates: Partial<RemoteStream>) => void;
 
   toggleMinimized: () => void;
   toggleFullscreen: () => void;
@@ -56,24 +57,56 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
   setLocalStream: (stream) => set({ localStream: stream }),
 
-  toggleMic: () => {
+  toggleMic: async () => {
     const { localStream, isMicOn } = get();
+    const nextMicState = !isMicOn;
     if (localStream) {
       localStream.getAudioTracks().forEach((track) => {
-        track.enabled = !isMicOn;
+        track.enabled = nextMicState;
       });
     }
-    set({ isMicOn: !isMicOn });
+    set({ isMicOn: nextMicState });
+
+    try {
+      const { peerService } = await import('../services/webrtc/peerService');
+      const { useRoomStore } = await import('./useRoomStore');
+      const currentUser = useRoomStore.getState().currentUser;
+      if (currentUser) {
+        peerService.broadcast('MEDIA_STATUS_CHANGE', {
+          userId: currentUser.id,
+          userName: currentUser.displayName,
+          isMicOn: nextMicState,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to broadcast mic toggle:', e);
+    }
   },
 
-  toggleCamera: () => {
+  toggleCamera: async () => {
     const { localStream, isCameraOn } = get();
+    const nextCamState = !isCameraOn;
     if (localStream) {
       localStream.getVideoTracks().forEach((track) => {
-        track.enabled = !isCameraOn;
+        track.enabled = nextCamState;
       });
     }
-    set({ isCameraOn: !isCameraOn });
+    set({ isCameraOn: nextCamState });
+
+    try {
+      const { peerService } = await import('../services/webrtc/peerService');
+      const { useRoomStore } = await import('./useRoomStore');
+      const currentUser = useRoomStore.getState().currentUser;
+      if (currentUser) {
+        peerService.broadcast('MEDIA_STATUS_CHANGE', {
+          userId: currentUser.id,
+          userName: currentUser.displayName,
+          isCameraOn: nextCamState,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to broadcast camera toggle:', e);
+    }
   },
 
   toggleScreenShare: async () => {
@@ -128,6 +161,14 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   updateRemoteStatus: (peerId, updates) => {
     set({
       remoteStreams: get().remoteStreams.map((r) => (r.peerId === peerId ? { ...r, ...updates } : r)),
+    });
+  },
+
+  updateRemoteStatusByUserId: (userId: string, updates: Partial<RemoteStream>) => {
+    set({
+      remoteStreams: get().remoteStreams.map((r) =>
+        r.userId === userId || r.peerId.includes(userId.slice(-6)) ? { ...r, ...updates } : r
+      ),
     });
   },
 

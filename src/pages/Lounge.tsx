@@ -8,6 +8,7 @@ import { QueueList } from '../components/queue/QueueList';
 import { ChatBox } from '../components/chat/ChatBox';
 import { GameSelector } from '../components/games/GameSelector';
 import { FloatingVideoCall } from '../components/video/FloatingVideoCall';
+import { ToastContainer } from '../components/common/ToastContainer';
 import { useVideoStore } from '../stores/useVideoStore';
 import { getInitials } from '../utils/avatarUtils';
 import { Music, MessageSquare, Gamepad2, Users, Mic, MicOff, Video } from 'lucide-react';
@@ -37,6 +38,9 @@ export const Lounge: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#07080c] text-white flex flex-col justify-between pb-20 sm:pb-8 relative">
+      {/* Real-time Synchronization Toast Notification Pop-ups */}
+      <ToastContainer />
+
       {/* Background Orbs */}
       <div className="fixed top-[-10%] left-[-10%] w-[450px] h-[450px] rounded-full bg-indigo-600/15 blur-[140px] pointer-events-none" />
       <div className="fixed bottom-[-10%] right-[-10%] w-[450px] h-[450px] rounded-full bg-purple-600/15 blur-[140px] pointer-events-none" />
