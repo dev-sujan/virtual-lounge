@@ -14,6 +14,7 @@ interface VideoState {
   localStream: MediaStream | null;
   isMicOn: boolean;
   isCameraOn: boolean;
+  isScreenSharing: boolean;
   isVideoCallActive: boolean;
   remoteStreams: RemoteStream[];
 
@@ -27,6 +28,7 @@ interface VideoState {
   setLocalStream: (stream: MediaStream | null) => void;
   toggleMic: () => void;
   toggleCamera: () => void;
+  toggleScreenShare: () => Promise<void>;
   setVideoCallActive: (active: boolean) => void;
   addRemoteStream: (remote: RemoteStream) => void;
   removeRemoteStream: (peerId: string) => void;
@@ -43,6 +45,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   localStream: null,
   isMicOn: true,
   isCameraOn: true,
+  isScreenSharing: false,
   isVideoCallActive: false,
   remoteStreams: [],
 
@@ -71,6 +74,32 @@ export const useVideoStore = create<VideoState>((set, get) => ({
       });
     }
     set({ isCameraOn: !isCameraOn });
+  },
+
+  toggleScreenShare: async () => {
+    const { isScreenSharing } = get();
+    if (isScreenSharing) {
+      // Revert to user camera media stream if available
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        set({ localStream: camStream, isScreenSharing: false, isCameraOn: true });
+      } catch {
+        set({ isScreenSharing: false });
+      }
+    } else {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        
+        screenTrack.onended = () => {
+          set({ isScreenSharing: false });
+        };
+
+        set({ localStream: screenStream, isScreenSharing: true, isCameraOn: true });
+      } catch (err) {
+        console.warn('Screen share canceled or not supported:', err);
+      }
+    }
   },
 
   setVideoCallActive: (active) => set({ isVideoCallActive: active }),
@@ -107,6 +136,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
     set({
       localStream: null,
       isVideoCallActive: false,
+      isScreenSharing: false,
       remoteStreams: [],
       isFullscreen: false,
       isMinimized: false,

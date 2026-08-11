@@ -13,6 +13,7 @@ import {
   X,
   PhoneOff,
   Move,
+  Monitor,
 } from 'lucide-react';
 
 export const FloatingVideoCall: React.FC = () => {
@@ -20,6 +21,7 @@ export const FloatingVideoCall: React.FC = () => {
     localStream,
     isMicOn,
     isCameraOn,
+    isScreenSharing,
     isVideoCallActive,
     remoteStreams,
     isMinimized,
@@ -27,6 +29,7 @@ export const FloatingVideoCall: React.FC = () => {
     position,
     toggleMic,
     toggleCamera,
+    toggleScreenShare,
     toggleMinimized,
     toggleFullscreen,
     setPosition,
@@ -151,7 +154,7 @@ export const FloatingVideoCall: React.FC = () => {
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover transform -scale-x-100"
+              className={`w-full h-full object-cover ${isScreenSharing ? '' : 'transform -scale-x-100'}`}
             />
           ) : (
             <div className="flex flex-col items-center justify-center p-4">
@@ -166,7 +169,7 @@ export const FloatingVideoCall: React.FC = () => {
           )}
 
           <div className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md bg-black/60 backdrop-blur text-[10px] font-semibold text-white flex items-center space-x-1">
-            <span>You</span>
+            <span>{isScreenSharing ? 'Your Screen' : 'You'}</span>
             {!isMicOn && <MicOff className="w-2.5 h-2.5 text-rose-400" />}
           </div>
         </div>
@@ -176,7 +179,7 @@ export const FloatingVideoCall: React.FC = () => {
         ))}
       </div>
 
-      <div className="p-3 bg-slate-900/90 border-t border-white/10 flex items-center justify-center space-x-4">
+      <div className="p-3 bg-slate-900/90 border-t border-white/10 flex items-center justify-center space-x-3">
         <button
           onClick={toggleMic}
           className={`p-3 rounded-full transition transform active:scale-95 shadow ${
@@ -199,6 +202,18 @@ export const FloatingVideoCall: React.FC = () => {
           title={isCameraOn ? 'Turn Camera Off' : 'Turn Camera On'}
         >
           {isCameraOn ? <VideoIcon className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
+        </button>
+
+        <button
+          onClick={toggleScreenShare}
+          className={`p-3 rounded-full transition transform active:scale-95 shadow ${
+            isScreenSharing
+              ? 'bg-emerald-600 text-white ring-2 ring-emerald-400/50'
+              : 'bg-slate-800 text-white border border-white/20 hover:bg-slate-700'
+          }`}
+          title={isScreenSharing ? 'Stop Screen Sharing' : 'Share Screen'}
+        >
+          <Monitor className="w-4 h-4" />
         </button>
 
         <button
