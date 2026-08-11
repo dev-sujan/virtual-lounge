@@ -402,6 +402,27 @@ class PeerService {
         break;
       }
 
+      case 'PULL_PEER_STREAM': {
+        const { targetUserId, requesterPeerId } = payload;
+        const currentUserId = useRoomStore.getState().currentUser?.id;
+        if (currentUserId && (targetUserId === currentUserId || targetUserId === 'all')) {
+          console.log('[P2P] Peer requested stream pull, re-initiating call to:', requesterPeerId);
+          const videoStore = useVideoStore.getState();
+          let streamToUse = videoStore.localStream;
+          if (!streamToUse) {
+            try {
+              streamToUse = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+              videoStore.setLocalStream(streamToUse);
+            } catch {}
+          }
+          if (streamToUse && requesterPeerId) {
+            this.callPeer(requesterPeerId, streamToUse);
+          }
+        }
+        break;
+      }
+
+
 
       case 'LEAVE_ROOM': {
         const { userId, userName } = payload;
@@ -431,7 +452,22 @@ class PeerService {
     this.messageHandlers.forEach((handler) => handler(msg));
   }
 
+  public requestPullStream(targetUserId: string) {
+    if (!this.peer) return;
+    console.log('[P2P] Requesting stream pull from user:', targetUserId);
+    useToastStore.getState().addToast({
+      category: 'info',
+      title: '🔄 Pulling Peer Video Stream',
+      message: 'Re-establishing WebRTC media connection...',
+    });
+    this.broadcast('PULL_PEER_STREAM', {
+      targetUserId,
+      requesterPeerId: this.peer.id,
+    });
+  }
+
   public callPeer(peerId: string, stream: MediaStream): MediaConnection | null {
+
     if (!this.peer) return null;
     try {
       if (this.mediaCalls.has(peerId)) {

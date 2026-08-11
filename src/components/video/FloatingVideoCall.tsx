@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useVideoStore } from '../../stores/useVideoStore';
 import type { RemoteStream } from '../../stores/useVideoStore';
 import { useRoomStore } from '../../stores/useRoomStore';
+import { peerService } from '../../services/webrtc/peerService';
 import { getInitials } from '../../utils/avatarUtils';
 import {
   Mic,
@@ -17,8 +18,8 @@ import {
   Pin,
   ExternalLink,
   Settings,
+  RefreshCw,
 } from 'lucide-react';
-
 
 export const FloatingVideoCall: React.FC = () => {
   const {
@@ -102,6 +103,10 @@ export const FloatingVideoCall: React.FC = () => {
     }
   };
 
+  const handlePullAllStreams = () => {
+    peerService.requestPullStream('all');
+  };
+
   if (!isVideoCallActive) return null;
 
   if (isMinimized) {
@@ -143,7 +148,7 @@ export const FloatingVideoCall: React.FC = () => {
       className={`fixed z-50 transition-all duration-150 ease-out select-none ${
         isFullscreen
           ? 'bg-black/95 flex flex-col p-4'
-          : isScreenSharing || pinnedStreamId
+          : isScreenSharing || pinnedStreamId || remoteStreams.length > 0
           ? 'w-80 sm:w-96 rounded-2xl glass-card border border-indigo-500/30 shadow-2xl overflow-hidden'
           : 'w-72 sm:w-80 rounded-2xl glass-card border border-white/20 shadow-2xl overflow-hidden'
       }`}
@@ -159,6 +164,15 @@ export const FloatingVideoCall: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-1">
+          {/* Pull All Streams Button */}
+          <button
+            onClick={handlePullAllStreams}
+            className="p-1 text-indigo-400 hover:text-indigo-200 rounded hover:bg-white/10"
+            title="Force Re-Sync / Pull Peer Video Streams"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+          </button>
+
           {/* PiP Button */}
           <button
             onClick={handleRequestPiP}
@@ -249,7 +263,7 @@ export const FloatingVideoCall: React.FC = () => {
       {/* Video Grid / Stage View */}
       <div
         className={`grid gap-2 p-2 bg-black/70 ${
-          isFullscreen ? 'flex-1 grid-cols-1 sm:grid-cols-2' : isScreenSharing ? 'h-64 grid-cols-1' : 'h-52 grid-cols-1'
+          isFullscreen ? 'flex-1 grid-cols-1 sm:grid-cols-2' : isScreenSharing || pinnedStreamId ? 'h-64 grid-cols-1' : 'h-56 grid-cols-1 sm:grid-cols-2'
         }`}
       >
         {/* Local Stream Card */}
@@ -309,6 +323,7 @@ export const FloatingVideoCall: React.FC = () => {
             fitMode={fitMode}
             isPinned={pinnedStreamId === remote.peerId}
             onTogglePin={() => setPinnedStreamId(pinnedStreamId === remote.peerId ? null : remote.peerId)}
+            onPullStream={() => peerService.requestPullStream(remote.userId)}
           />
         ))}
       </div>
@@ -368,9 +383,10 @@ interface RemoteVideoItemProps {
   fitMode: 'cover' | 'contain';
   isPinned: boolean;
   onTogglePin: () => void;
+  onPullStream: () => void;
 }
 
-const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote, fitMode, isPinned, onTogglePin }) => {
+const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote, fitMode, isPinned, onTogglePin, onPullStream }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [, setTrackUpdateCount] = useState(0);
 
@@ -421,6 +437,15 @@ const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote, fitMode, isPi
             {getInitials(remote.userName || 'Peer')}
           </div>
           <span className="text-[10px] text-slate-400">Camera Off</span>
+
+          <button
+            onClick={onPullStream}
+            className="mt-2 text-[10px] bg-indigo-600/80 hover:bg-indigo-500 text-white px-2.5 py-1 rounded-lg flex items-center space-x-1 shadow transition"
+            title="Force Pull Remote Video Stream"
+          >
+            <RefreshCw className="w-3 h-3" />
+            <span>Pull Stream</span>
+          </button>
         </div>
       )}
 
@@ -430,6 +455,13 @@ const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote, fitMode, isPi
       </div>
 
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition flex items-center space-x-1">
+        <button
+          onClick={onPullStream}
+          className="p-1.5 rounded-lg bg-black/60 hover:bg-indigo-600 text-slate-300 hover:text-white backdrop-blur transition"
+          title="Pull Peer Stream (Re-Sync Video)"
+        >
+          <RefreshCw className="w-3 h-3" />
+        </button>
         <button
           onClick={onTogglePin}
           className={`p-1.5 rounded-lg backdrop-blur transition ${

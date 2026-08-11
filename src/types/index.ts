@@ -132,7 +132,10 @@ export type SyncEventType =
   | 'FULL_STATE_SYNC'
   | 'LEAVE_ROOM'
   | 'MUSIC_REACTION'
-  | 'SKIP_VOTE_CHANGE';
+  | 'SKIP_VOTE_CHANGE'
+  | 'REQUEST_MEDIA_STREAM'
+  | 'PULL_PEER_STREAM';
+
 
 export interface SyncMessagePayload {
   type: SyncEventType;
