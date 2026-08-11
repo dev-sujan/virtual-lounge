@@ -130,7 +130,15 @@ class PeerService {
     });
   }
 
+  public onMessage(handler: MessageHandler): () => void {
+    this.messageHandlers.push(handler);
+    return () => {
+      this.messageHandlers = this.messageHandlers.filter((h) => h !== handler);
+    };
+  }
+
   public broadcast(type: SyncEventType, payload: any) {
+
     const { currentUser } = useRoomStore.getState();
     if (!currentUser) return;
 
@@ -256,6 +264,13 @@ class PeerService {
         }
         break;
       }
+
+      case 'SKIP_VOTE_CHANGE': {
+        const { votes } = msg.payload;
+        if (votes) useMusicStore.getState().setSkipVotes(votes);
+        break;
+      }
+
 
       case 'CHAT_MESSAGE': {
         useChatStore.getState().addMessage(msg.payload);

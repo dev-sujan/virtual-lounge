@@ -115,7 +115,9 @@ export type SyncEventType =
   | 'GAME_STATE_CHANGE'
   | 'MEDIA_STATUS_CHANGE'
   | 'FULL_STATE_SYNC'
-  | 'LEAVE_ROOM';
+  | 'LEAVE_ROOM'
+  | 'MUSIC_REACTION'
+  | 'SKIP_VOTE_CHANGE';
 
 export interface SyncMessagePayload {
   type: SyncEventType;
@@ -123,3 +125,4 @@ export interface SyncMessagePayload {
   timestamp: number;
   payload: any;
 }
+

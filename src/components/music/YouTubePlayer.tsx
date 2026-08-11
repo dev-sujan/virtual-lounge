@@ -1,9 +1,26 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useMusicStore } from '../../stores/useMusicStore';
 import { useRoomStore } from '../../stores/useRoomStore';
+import { useToastStore } from '../../stores/useToastStore';
 import { peerService } from '../../services/webrtc/peerService';
 import { formatTime } from '../../utils/youtubeUtils';
-import { Play, Pause, SkipForward, SkipBack, Volume2, VolumeX, Shuffle, Repeat, Plus } from 'lucide-react';
+import type { SyncMessagePayload } from '../../types';
+import {
+  Play,
+  Pause,
+  SkipForward,
+  SkipBack,
+  Volume2,
+  VolumeX,
+  Shuffle,
+  Repeat,
+  Plus,
+  FastForward,
+  Maximize2,
+  Minimize2,
+  Flame,
+} from 'lucide-react';
+
 
 declare global {
   interface Window {
@@ -12,21 +29,60 @@ declare global {
   }
 }
 
+interface FloatingEmoji {
+  id: string;
+  emoji: string;
+  x: number; // percentage horizontal position
+}
+
 interface YouTubePlayerProps {
   onOpenAddModal: () => void;
 }
 
+const REACTION_EMOJIS = ['🔥', '💃', '🎵', '👏', '❤️', '⚡'];
+const PLAYBACK_SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+
 export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) => {
-  const { currentTrack, playback, repeatMode, shuffleMode, setPlaybackState, skipTrack, setRepeatMode, toggleShuffle } =
-    useMusicStore();
-  const { currentUser } = useRoomStore();
+  const {
+    currentTrack,
+    playback,
+    repeatMode,
+    shuffleMode,
+    skipVotes,
+    setPlaybackState,
+    skipTrack,
+    setRepeatMode,
+    toggleShuffle,
+    toggleSkipVote,
+  } = useMusicStore();
+
+  const { currentUser, peers } = useRoomStore();
+  const { addToast } = useToastStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [localTime, setLocalTime] = useState(0);
   const [duration, setDuration] = useState(180);
+  const [isTheater, setIsTheater] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
   const isInternalSeeking = useRef(false);
+
+  // Register listener for remote reactions
+  useEffect(() => {
+    const unsub = peerService.onMessage?.((msg: SyncMessagePayload) => {
+      if (msg.type === 'MUSIC_REACTION') {
+        const { emoji } = msg.payload;
+        triggerFloatingEmoji(emoji);
+      }
+    });
+
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, []);
 
   useEffect(() => {
     if (window.YT && window.YT.Player) {
@@ -188,155 +244,288 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
     setPlaybackState({ isMuted: newMute });
   };
 
+  const handleCycleSpeed = () => {
+    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
+    const nextSpeed = PLAYBACK_SPEEDS[(currentIndex + 1) % PLAYBACK_SPEEDS.length];
+    setPlaybackSpeed(nextSpeed);
+    if (playerRef.current && playerRef.current.setPlaybackRate) {
+      playerRef.current.setPlaybackRate(nextSpeed);
+    }
+  };
+
+  const handleVoteSkip = () => {
+    if (!currentUser) return;
+    const totalUsers = (peers?.length || 0) + 1; // peers + self
+    const { votes, skipped } = toggleSkipVote(currentUser.id, totalUsers);
+
+    peerService.broadcast('SKIP_VOTE_CHANGE', { votes });
+
+    if (skipped) {
+      addToast({
+        category: 'info',
+        title: 'Track Skipped',
+        message: 'Vote threshold reached. Advancing to next track!',
+      });
+    }
+  };
+
+  const triggerFloatingEmoji = (emoji: string) => {
+    const newEmoji: FloatingEmoji = {
+      id: 'fe_' + Math.random().toString(36).substring(2, 9),
+      emoji,
+      x: Math.floor(Math.random() * 70) + 15,
+    };
+
+    setFloatingEmojis((prev) => [...prev, newEmoji]);
+    setTimeout(() => {
+      setFloatingEmojis((prev) => prev.filter((item) => item.id !== newEmoji.id));
+    }, 2200);
+  };
+
+  const handleSendEmojiReaction = (emoji: string) => {
+    triggerFloatingEmoji(emoji);
+    peerService.broadcast('MUSIC_REACTION', { emoji });
+  };
+
+  const totalRoomUsers = (peers?.length || 0) + 1;
+  const skipVotesNeeded = Math.max(1, Math.ceil(totalRoomUsers / 2));
+  const hasUserVotedSkip = currentUser && skipVotes.includes(currentUser.id);
+
   return (
-    <div className="glass-card rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 border border-white/10">
-      <div className="relative aspect-video w-full bg-black/80 group">
-        <div ref={containerRef} className="w-full h-full" />
+    <div className={`relative transition-all duration-300 ${isTheater ? 'col-span-full' : ''}`}>
+      {/* Ambient background glow */}
+      {currentTrack && (
+        <div
+          className="absolute -inset-2 rounded-3xl opacity-20 blur-xl transition-all duration-700 bg-cover bg-center pointer-events-none"
+          style={{ backgroundImage: `url(${currentTrack.thumbnail})` }}
+        />
+      )}
 
-        {!currentTrack && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-b from-slate-900/90 to-black">
-            <div className="w-16 h-16 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mb-4 animate-pulse">
-              <Plus className="w-8 h-8 text-indigo-400" />
-            </div>
-            <h3 className="text-xl font-bold text-white mb-2">Your Lounge Queue is Empty</h3>
-            <p className="text-slate-400 text-sm max-w-sm mb-6">
-              Add any YouTube music link or song to start listening together synchronously in real time.
-            </p>
-            <button
-              onClick={onOpenAddModal}
-              className="glow-btn bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium px-6 py-2.5 rounded-full flex items-center space-x-2 transition-all shadow-lg"
+      <div className="glass-card rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 border border-white/10 relative">
+        {/* Floating Emoji Particles Layer */}
+        <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+          {floatingEmojis.map((fe) => (
+            <div
+              key={fe.id}
+              className="absolute bottom-16 text-3xl animate-floatUp opacity-90 transition-all drop-shadow-lg"
+              style={{ left: `${fe.x}%` }}
             >
-              <Plus className="w-4 h-4" />
-              <span>Add Song to Queue</span>
-            </button>
-          </div>
-        )}
-
-        {currentTrack && (
-          <div className="absolute top-3 left-3 right-3 flex justify-between items-center z-10 opacity-90 group-hover:opacity-100 transition-opacity">
-            <div className="glass-pill px-3 py-1.5 rounded-full flex items-center space-x-2 text-xs font-medium text-white/90 max-w-[70%] truncate shadow-md">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              <span className="truncate">Added by {currentTrack.addedBy.name}</span>
+              {fe.emoji}
             </div>
-            <button
-              onClick={onOpenAddModal}
-              className="glass-pill hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded-full flex items-center space-x-1 font-medium transition"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add Music</span>
-            </button>
-          </div>
-        )}
-      </div>
+          ))}
+        </div>
 
-      <div className="p-4 sm:p-5 bg-slate-900/60 backdrop-blur-lg">
-        {currentTrack ? (
-          <div>
-            <div className="mb-3">
-              <h2 className="text-base sm:text-lg font-bold text-white truncate">{currentTrack.title}</h2>
-              <p className="text-xs text-indigo-300 font-medium truncate">{currentTrack.author}</p>
-            </div>
+        {/* Video Screen Container */}
+        <div className={`relative w-full bg-black/90 group ${isTheater ? 'aspect-[21/9]' : 'aspect-video'}`}>
+          <div ref={containerRef} className="w-full h-full" />
 
-            <div className="space-y-1 mb-4">
-              <input
-                type="range"
-                min={0}
-                max={duration || 100}
-                value={localTime}
-                onChange={handleSeek}
-                className="custom-slider w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-              />
-              <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                <span>{formatTime(localTime)}</span>
-                <span>{formatTime(duration)}</span>
+          {!currentTrack && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-gradient-to-b from-slate-900/95 to-black">
+              <div className="w-16 h-16 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center mb-4 animate-pulse">
+                <Plus className="w-8 h-8 text-indigo-400" />
               </div>
+              <h3 className="text-xl font-bold text-white mb-2">Your Lounge Queue is Empty</h3>
+              <p className="text-slate-400 text-sm max-w-sm mb-6">
+                Add any YouTube music link, search tracks, or select a lounge preset to listen together synchronously.
+              </p>
+              <button
+                onClick={onOpenAddModal}
+                className="glow-btn bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium px-6 py-2.5 rounded-full flex items-center space-x-2 transition-all shadow-lg"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add Song to Queue</span>
+              </button>
             </div>
+          )}
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-1 sm:space-x-2">
-                <button
-                  onClick={toggleShuffle}
-                  className={`p-2 rounded-xl transition ${
-                    shuffleMode ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Shuffle Queue"
-                >
-                  <Shuffle className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() =>
-                    setRepeatMode(repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off')
-                  }
-                  className={`p-2 rounded-xl transition relative ${
-                    repeatMode !== 'off'
-                      ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                  title={`Repeat: ${repeatMode}`}
-                >
-                  <Repeat className="w-4 h-4" />
-                  {repeatMode === 'one' && (
-                    <span className="absolute -top-1 -right-1 text-[9px] font-bold bg-indigo-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center">
-                      1
-                    </span>
-                  )}
-                </button>
+          {/* Top Bar Overlay */}
+          {currentTrack && (
+            <div className="absolute top-3 left-3 right-3 flex justify-between items-center z-10 opacity-90 group-hover:opacity-100 transition-opacity">
+              <div className="glass-pill px-3 py-1.5 rounded-full flex items-center space-x-2 text-xs font-medium text-white/90 max-w-[65%] truncate shadow-md">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                <span className="truncate">Added by {currentTrack.addedBy.name}</span>
               </div>
 
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => skipTrack('prev')}
-                  className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition"
-                  title="Previous Song"
+                  onClick={() => setIsTheater(!isTheater)}
+                  className="glass-pill hover:bg-white/20 text-white p-1.5 rounded-full transition"
+                  title={isTheater ? 'Standard View' : 'Theater Mode'}
                 >
-                  <SkipBack className="w-5 h-5" />
+                  {isTheater ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                 </button>
 
                 <button
-                  onClick={handleTogglePlay}
-                  className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 transform active:scale-95 transition-all"
-                  title={playback.isPlaying ? 'Pause' : 'Play'}
+                  onClick={onOpenAddModal}
+                  className="glass-pill hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded-full flex items-center space-x-1 font-medium transition"
                 >
-                  {playback.isPlaying ? (
-                    <Pause className="w-6 h-6 fill-current" />
-                  ) : (
-                    <Play className="w-6 h-6 fill-current translate-x-0.5" />
-                  )}
-                </button>
-
-                <button
-                  onClick={() => skipTrack('next')}
-                  className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition"
-                  title="Next Song"
-                >
-                  <SkipForward className="w-5 h-5" />
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Music</span>
                 </button>
               </div>
+            </div>
+          )}
+        </div>
 
-              <div className="hidden sm:flex items-center space-x-2">
-                <button onClick={handleToggleMute} className="text-slate-400 hover:text-white">
-                  {playback.isMuted || playback.volume === 0 ? (
-                    <VolumeX className="w-4 h-4 text-rose-400" />
-                  ) : (
-                    <Volume2 className="w-4 h-4" />
-                  )}
-                </button>
+        {/* Player Controls Deck */}
+        <div className="p-4 sm:p-5 bg-slate-900/80 backdrop-blur-xl">
+          {currentTrack ? (
+            <div>
+              {/* Title & Emoji Reactions Row */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                <div className="overflow-hidden">
+                  <h2 className="text-base sm:text-lg font-bold text-white truncate">{currentTrack.title}</h2>
+                  <p className="text-xs text-indigo-300 font-medium truncate">{currentTrack.author}</p>
+                </div>
+
+                {/* Floating Reaction Bar */}
+                <div className="flex items-center space-x-1 bg-slate-950/60 px-2 py-1 rounded-2xl border border-white/10 shrink-0 self-start sm:self-auto">
+                  {REACTION_EMOJIS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => handleSendEmojiReaction(emoji)}
+                      className="p-1 hover:scale-125 transform transition text-sm"
+                      title={`Send ${emoji} reaction`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Progress Slider */}
+              <div className="space-y-1 mb-4">
                 <input
                   type="range"
                   min={0}
-                  max={100}
-                  value={playback.isMuted ? 0 : playback.volume}
-                  onChange={handleVolumeChange}
-                  className="w-16 accent-indigo-500 bg-white/10 h-1 rounded cursor-pointer"
+                  max={duration || 100}
+                  value={localTime}
+                  onChange={handleSeek}
+                  className="custom-slider w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                 />
+                <div className="flex justify-between text-[11px] font-mono text-slate-400">
+                  <span>{formatTime(localTime)}</span>
+                  <span>{formatTime(duration)}</span>
+                </div>
+              </div>
+
+              {/* Main Controls Row */}
+              <div className="flex items-center justify-between">
+                {/* Mode Toggles */}
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <button
+                    onClick={toggleShuffle}
+                    className={`p-2 rounded-xl transition ${
+                      shuffleMode
+                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title="Shuffle Queue"
+                  >
+                    <Shuffle className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setRepeatMode(repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off')
+                    }
+                    className={`p-2 rounded-xl transition relative ${
+                      repeatMode !== 'off'
+                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                    title={`Repeat: ${repeatMode}`}
+                  >
+                    <Repeat className="w-4 h-4" />
+                    {repeatMode === 'one' && (
+                      <span className="absolute -top-1 -right-1 text-[9px] font-bold bg-indigo-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                        1
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handleCycleSpeed}
+                    className="p-1.5 rounded-xl text-xs font-mono font-bold bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 transition flex items-center space-x-1"
+                    title="Change Playback Speed"
+                  >
+                    <FastForward className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>{playbackSpeed}x</span>
+                  </button>
+                </div>
+
+                {/* Play / Skip Buttons */}
+                <div className="flex items-center space-x-3">
+                  <button
+                    onClick={() => skipTrack('prev')}
+                    className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition"
+                    title="Previous Song"
+                  >
+                    <SkipBack className="w-5 h-5" />
+                  </button>
+
+                  <button
+                    onClick={handleTogglePlay}
+                    className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 transform active:scale-95 transition-all"
+                    title={playback.isPlaying ? 'Pause' : 'Play'}
+                  >
+                    {playback.isPlaying ? (
+                      <Pause className="w-6 h-6 fill-current" />
+                    ) : (
+                      <Play className="w-6 h-6 fill-current translate-x-0.5" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => skipTrack('next')}
+                    className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition"
+                    title="Next Song"
+                  >
+                    <SkipForward className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Vote to Skip & Volume */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleVoteSkip}
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition border ${
+                      hasUserVotedSkip
+                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
+                    }`}
+                    title="Vote to skip current song with lounge members"
+                  >
+                    <Flame className={`w-3.5 h-3.5 ${hasUserVotedSkip ? 'text-rose-400 fill-current' : 'text-slate-400'}`} />
+                    <span>Skip ({skipVotes.length}/{skipVotesNeeded})</span>
+                  </button>
+
+                  <div className="hidden sm:flex items-center space-x-2">
+                    <button onClick={handleToggleMute} className="text-slate-400 hover:text-white">
+                      {playback.isMuted || playback.volume === 0 ? (
+                        <VolumeX className="w-4 h-4 text-rose-400" />
+                      ) : (
+                        <Volume2 className="w-4 h-4" />
+                      )}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={playback.isMuted ? 0 : playback.volume}
+                      onChange={handleVolumeChange}
+                      className="w-16 accent-indigo-500 bg-white/10 h-1 rounded cursor-pointer"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="py-2 text-center text-slate-400 text-sm">
-            Select or add a YouTube track to start streaming together.
-          </div>
-        )}
+          ) : (
+            <div className="py-2 text-center text-slate-400 text-sm">
+              Select or add a YouTube track to start streaming together.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
