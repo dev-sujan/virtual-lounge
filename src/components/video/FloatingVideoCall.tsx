@@ -46,6 +46,7 @@ export const FloatingVideoCall: React.FC = () => {
   useEffect(() => {
     if (localVideoRef.current && localStream && isCameraOn) {
       localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.play().catch((e) => console.warn('Local video play issue:', e));
     }
   }, [localStream, isCameraOn, isScreenSharing]);
 
@@ -234,12 +235,30 @@ interface RemoteVideoItemProps {
 
 const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [, setTrackUpdateCount] = useState(0);
+
+  useEffect(() => {
+    if (!remote.stream) return;
+
+    const handleTrackChange = () => {
+      setTrackUpdateCount((c) => c + 1);
+    };
+
+    remote.stream.addEventListener('addtrack', handleTrackChange);
+    remote.stream.addEventListener('removetrack', handleTrackChange);
+
+    return () => {
+      remote.stream.removeEventListener('addtrack', handleTrackChange);
+      remote.stream.removeEventListener('removetrack', handleTrackChange);
+    };
+  }, [remote.stream]);
 
   useEffect(() => {
     if (videoRef.current && remote.stream && remote.isCameraOn) {
       videoRef.current.srcObject = remote.stream;
+      videoRef.current.play().catch((e) => console.warn('Remote video play issue:', e));
     }
-  }, [remote.stream, remote.isCameraOn]);
+  }, [remote.stream, remote.isCameraOn, remote.stream?.getTracks().length]);
 
   return (
     <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-white/10 flex items-center justify-center">

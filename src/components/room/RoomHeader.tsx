@@ -3,6 +3,7 @@ import { useRoomStore } from '../../stores/useRoomStore';
 import { useVideoStore } from '../../stores/useVideoStore';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
+import { buildDirectInviteLink } from '../../utils/roomUtils';
 import { Lock, Share2, LogOut, Video, Copy, Check } from 'lucide-react';
 
 export const RoomHeader: React.FC = () => {
@@ -22,6 +23,8 @@ export const RoomHeader: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       setLocalStream(stream);
       setVideoCallActive(true);
+      const { peerService } = await import('../../services/webrtc/peerService');
+      peerService.callAllPeers(stream);
     } catch (err) {
       alert('Camera / Microphone permission required for video call.');
     }
@@ -29,7 +32,8 @@ export const RoomHeader: React.FC = () => {
 
   const handleCopyId = () => {
     if (!roomId) return;
-    navigator.clipboard.writeText(roomId);
+    const directLink = buildDirectInviteLink(roomId, password || '');
+    navigator.clipboard.writeText(directLink);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   };

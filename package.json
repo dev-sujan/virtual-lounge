@@ -4,13 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "NAPI_RS_FORCE_WASI=true vite --host",
+    "dev": "vite --host",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@tailwindcss/oxide-wasm32-wasi": "^4.3.3",
     "canvas-confetti": "^1.9.4",
     "lightningcss-wasm": "^1.33.0",
     "lucide-react": "^1.31.0",

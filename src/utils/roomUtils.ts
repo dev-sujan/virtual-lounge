@@ -60,3 +60,40 @@ export function clearSessionStorage(): void {
     console.error('Failed to clear session storage:', err);
   }
 }
+
+export interface InviteParams {
+  roomId: string | null;
+  password: string | null;
+}
+
+export function parseInviteParams(): InviteParams {
+  const hash = window.location.hash.substring(1);
+  const search = window.location.search.substring(1);
+
+  const hashParams = new URLSearchParams(hash);
+  const searchParams = new URLSearchParams(search);
+
+  let roomId = hashParams.get('room') || searchParams.get('room');
+  let password =
+    hashParams.get('pwd') ||
+    hashParams.get('password') ||
+    searchParams.get('pwd') ||
+    searchParams.get('password');
+
+  if (!roomId && window.location.hash.includes('room=')) {
+    const rMatch = window.location.hash.match(/room=([A-Z0-9]{6})/i);
+    if (rMatch) roomId = rMatch[1];
+    const pMatch = window.location.hash.match(/(?:pwd|password)=([A-Z0-9]+)/i);
+    if (pMatch) password = pMatch[1];
+  }
+
+  return {
+    roomId: roomId ? roomId.toUpperCase() : null,
+    password: password || null,
+  };
+}
+
+export function buildDirectInviteLink(roomId: string, password: string): string {
+  const base = `${window.location.origin}${window.location.pathname}`;
+  return `${base}#room=${roomId}&pwd=${password}`;
+}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Eye, EyeOff, Share2 } from 'lucide-react';
+import { X, Copy, Check, Eye, EyeOff, Share2, Link, Zap } from 'lucide-react';
+import { buildDirectInviteLink } from '../../utils/roomUtils';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -10,16 +11,24 @@ interface ShareModalProps {
 
 export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password, onClose }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const [copiedText, setCopiedText] = useState(false);
+  const [copiedDirectLink, setCopiedDirectLink] = useState(false);
+  const [copiedFullMsg, setCopiedFullMsg] = useState(false);
 
   if (!isOpen) return null;
 
-  const sharePayload = `🔒 Join my Private Social Lounge!\nRoom ID: ${roomId}\nPassword: ${password}\nURL: ${window.location.origin}${window.location.pathname}#room=${roomId}`;
+  const directLink = buildDirectInviteLink(roomId, password);
+  const sharePayload = `🔒 Join my Private Social Lounge!\nRoom ID: ${roomId}\nPasscode: ${password}\n\n⚡ 1-Click Direct Join Link (No password prompt):\n${directLink}`;
 
-  const handleCopyAll = () => {
+  const handleCopyDirectLink = () => {
+    navigator.clipboard.writeText(directLink);
+    setCopiedDirectLink(true);
+    setTimeout(() => setCopiedDirectLink(false), 2000);
+  };
+
+  const handleCopyFullMsg = () => {
     navigator.clipboard.writeText(sharePayload);
-    setCopiedText(true);
-    setTimeout(() => setCopiedText(false), 2000);
+    setCopiedFullMsg(true);
+    setTimeout(() => setCopiedFullMsg(false), 2000);
   };
 
   return (
@@ -37,9 +46,41 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password
             <Share2 className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">Share Private Room</h3>
-            <p className="text-xs text-slate-400">Invite friends with Room ID & Password</p>
+            <h3 className="text-lg font-bold text-white">Share Private Lounge</h3>
+            <p className="text-xs text-slate-400">1-click direct link or room credentials</p>
           </div>
+        </div>
+
+        {/* 1-Click Direct Link Banner */}
+        <div className="bg-gradient-to-r from-indigo-950/40 to-purple-950/40 p-4 rounded-xl border border-indigo-500/30 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-indigo-300 flex items-center space-x-1.5">
+              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span>1-Click Direct Access Link</span>
+            </span>
+            <span className="text-[10px] text-emerald-400 font-mono font-semibold bg-emerald-500/20 px-2 py-0.2 rounded-full border border-emerald-500/30">
+              No password needed
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-300 mb-3">
+            Friends opening this link will enter the lounge directly without typing any password.
+          </p>
+          <button
+            onClick={handleCopyDirectLink}
+            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 transition shadow"
+          >
+            {copiedDirectLink ? (
+              <>
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>Copied 1-Click Direct Link!</span>
+              </>
+            ) : (
+              <>
+                <Link className="w-4 h-4" />
+                <span>Copy 1-Click Direct Link</span>
+              </>
+            )}
+          </button>
         </div>
 
         <div className="space-y-3 mb-6">
@@ -53,10 +94,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password
             <button
               onClick={() => {
                 navigator.clipboard.writeText(roomId);
-                setCopiedText(true);
-                setTimeout(() => setCopiedText(false), 2000);
+                setCopiedDirectLink(true);
+                setTimeout(() => setCopiedDirectLink(false), 2000);
               }}
               className="text-xs text-slate-300 hover:text-white p-2 rounded-lg bg-white/5 hover:bg-white/10 transition"
+              title="Copy Room ID"
             >
               <Copy className="w-4 h-4" />
             </button>
@@ -79,18 +121,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password
         </div>
 
         <button
-          onClick={handleCopyAll}
-          className="w-full glow-btn bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-medium py-3 rounded-xl flex items-center justify-center space-x-2 transition shadow-lg"
+          onClick={handleCopyFullMsg}
+          className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white font-medium py-2.5 rounded-xl flex items-center justify-center space-x-2 transition text-xs"
         >
-          {copiedText ? (
+          {copiedFullMsg ? (
             <>
               <Check className="w-4 h-4 text-emerald-400" />
-              <span>Copied Room Invite Details!</span>
+              <span>Copied Full Invite Details!</span>
             </>
           ) : (
             <>
               <Copy className="w-4 h-4" />
-              <span>Copy Full Invitation Link</span>
+              <span>Copy Full Invitation Text</span>
             </>
           )}
         </button>

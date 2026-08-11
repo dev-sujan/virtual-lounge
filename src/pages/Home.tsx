@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRoomStore } from '../stores/useRoomStore';
-import { generateRoomId, generatePassword, generateUserId, AVATAR_COLORS } from '../utils/roomUtils';
-import { Music, Sparkles, ArrowRight, ShieldCheck, PlayCircle, Video, Gamepad2, Check } from 'lucide-react';
+import { generateRoomId, generatePassword, generateUserId, parseInviteParams, AVATAR_COLORS } from '../utils/roomUtils';
+import { Music, Sparkles, ArrowRight, ShieldCheck, PlayCircle, Video, Gamepad2, Check, Lock, Key } from 'lucide-react';
 
 export const Home: React.FC = () => {
   const [tab, setTab] = useState<'create' | 'join'>('create');
@@ -10,6 +10,7 @@ export const Home: React.FC = () => {
   const [displayName, setDisplayName] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [isAutoFilledPassword, setIsAutoFilledPassword] = useState(false);
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0]);
 
   // Generated Fields for Create
@@ -19,13 +20,14 @@ export const Home: React.FC = () => {
   const { setRoomSession } = useRoomStore();
 
   useEffect(() => {
-    // Check if URL hash has room parameter (e.g. #room=SM7K9P)
-    const hash = window.location.hash;
-    if (hash.includes('room=')) {
-      const match = hash.match(/room=([A-Z0-9]{6})/i);
-      if (match && match[1]) {
-        setRoomIdInput(match[1].toUpperCase());
-        setTab('join');
+    // Check if URL hash or search parameters contain room and password (e.g. #room=SM7K9P&pwd=123456)
+    const { roomId, password } = parseInviteParams();
+    if (roomId) {
+      setRoomIdInput(roomId);
+      setTab('join');
+      if (password) {
+        setPasswordInput(password);
+        setIsAutoFilledPassword(true);
       }
     }
 
@@ -225,16 +227,31 @@ export const Home: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Room Password
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300">
+                    Room Password
+                  </label>
+                  {isAutoFilledPassword && (
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-medium flex items-center space-x-1">
+                      <Check className="w-2.5 h-2.5" />
+                      <span>Auto-filled from direct link</span>
+                    </span>
+                  )}
+                </div>
                 <input
                   type="password"
                   required
                   value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
+                  onChange={(e) => {
+                    setPasswordInput(e.target.value);
+                    setIsAutoFilledPassword(false);
+                  }}
                   placeholder="e.g. 482913"
-                  className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
+                  className={`w-full bg-slate-900/80 border rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none transition ${
+                    isAutoFilledPassword
+                      ? 'border-emerald-500/50 bg-emerald-950/10 focus:border-emerald-400'
+                      : 'border-white/10 focus:border-indigo-500'
+                  }`}
                 />
               </div>
 

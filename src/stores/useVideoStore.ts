@@ -95,6 +95,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
         // Update active WebRTC peer connections with the new audio track
         peerService.updateLocalStreamTrack(freshStream);
+        peerService.callAllPeers(freshStream);
       } catch (err) {
         console.error('Failed to turn microphone back on:', err);
         set({ isMicOn: false });
@@ -154,6 +155,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
         // Update active WebRTC peer connections with the new video track
         peerService.updateLocalStreamTrack(freshStream);
+        peerService.callAllPeers(freshStream);
       } catch (err) {
         console.error('Failed to turn camera back on:', err);
         set({ isCameraOn: false });
@@ -175,8 +177,7 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   toggleScreenShare: async () => {
-    const { isScreenSharing } = get();
-    // Dynamic import to avoid circular import issues with peerService
+    const { isScreenSharing, localStream } = get();
     const { peerService } = await import('../services/webrtc/peerService');
 
     if (isScreenSharing) {
@@ -185,26 +186,47 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         set({ localStream: camStream, isScreenSharing: false, isCameraOn: true });
         peerService.updateLocalStreamTrack(camStream);
+        peerService.callAllPeers(camStream);
       } catch {
         set({ isScreenSharing: false });
       }
     } else {
       try {
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-        const screenTrack = screenStream.getVideoTracks()[0];
+        const screenVideoTrack = screenStream.getVideoTracks()[0];
+
+        // Retain current mic audio track so peers can hear user during screen share
+        let micAudioTrack: MediaStreamTrack | null = localStream?.getAudioTracks()[0] || null;
+        if (!micAudioTrack) {
+          try {
+            const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            micAudioTrack = micStream.getAudioTracks()[0] || null;
+          } catch {
+            console.warn('Mic audio unavailable for screen share');
+          }
+        }
+
+        const combinedTracks: MediaStreamTrack[] = [screenVideoTrack];
+        if (micAudioTrack) {
+          combinedTracks.push(micAudioTrack);
+        }
+
+        const combinedStream = new MediaStream(combinedTracks);
         
-        screenTrack.onended = async () => {
+        screenVideoTrack.onended = async () => {
           try {
             const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             set({ localStream: camStream, isScreenSharing: false, isCameraOn: true });
             peerService.updateLocalStreamTrack(camStream);
+            peerService.callAllPeers(camStream);
           } catch {
             set({ isScreenSharing: false });
           }
         };
 
-        set({ localStream: screenStream, isScreenSharing: true, isCameraOn: true });
-        peerService.updateLocalStreamTrack(screenStream);
+        set({ localStream: combinedStream, isScreenSharing: true, isCameraOn: true });
+        peerService.updateLocalStreamTrack(combinedStream);
+        peerService.callAllPeers(combinedStream);
       } catch (err) {
         console.warn('Screen share canceled or not supported:', err);
       }

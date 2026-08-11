@@ -357,6 +357,12 @@ class PeerService {
   public callPeer(peerId: string, stream: MediaStream): MediaConnection | null {
     if (!this.peer) return null;
     try {
+      if (this.mediaCalls.has(peerId)) {
+        const existingCall = this.mediaCalls.get(peerId);
+        existingCall?.close();
+        this.mediaCalls.delete(peerId);
+      }
+      console.log('[P2P] Calling peer:', peerId);
       const call = this.peer.call(peerId, stream);
       this.setupMediaCall(call);
       return call;
@@ -370,18 +376,29 @@ class PeerService {
     if (!this.peer) return;
     const { peers, roomId, isHost } = useRoomStore.getState();
 
+    const targetPeerIds: string[] = [];
+
     if (!isHost && roomId) {
-      const hostPeerId = `synclounge-room-${roomId.toLowerCase()}`;
-      if (!this.mediaCalls.has(hostPeerId)) {
-        this.callPeer(hostPeerId, stream);
-      }
+      targetPeerIds.push(`synclounge-room-${roomId.toLowerCase()}`);
     }
 
     peers.forEach((peerUser) => {
       if (roomId && !peerUser.isHost) {
         const guestPeerId = `synclounge-${roomId.toLowerCase()}-${peerUser.id.slice(-6)}`;
-        if (guestPeerId !== this.peer?.id && !this.mediaCalls.has(guestPeerId)) {
-          this.callPeer(guestPeerId, stream);
+        if (guestPeerId !== this.peer?.id) {
+          targetPeerIds.push(guestPeerId);
+        }
+      }
+    });
+
+    targetPeerIds.forEach((targetId) => {
+      const existingCall = this.mediaCalls.get(targetId);
+      if (!existingCall || (existingCall as any).open === false) {
+        this.callPeer(targetId, stream);
+      } else {
+        const updated = this.updateLocalStreamTrack(stream, targetId);
+        if (!updated) {
+          this.callPeer(targetId, stream);
         }
       }
     });
@@ -393,12 +410,19 @@ class PeerService {
 
     call.answer(localStream || undefined);
     this.setupMediaCall(call);
+
+    if (localStream) {
+      setTimeout(() => {
+        this.updateLocalStreamTrack(localStream, call.peer);
+      }, 500);
+    }
   }
 
   private setupMediaCall(call: MediaConnection) {
     this.mediaCalls.set(call.peer, call);
 
     call.on('stream', (remoteStream) => {
+      console.log('[P2P] Received remote stream from peer:', call.peer, 'tracks:', remoteStream.getTracks().length);
       const peers = useRoomStore.getState().peers;
       const peerInfo = peers.find(
         (p) => call.peer.includes(p.id.slice(-6)) || p.id === call.peer || (p.isHost && call.peer.includes('room-'))
@@ -415,7 +439,6 @@ class PeerService {
         isCameraOn: true,
       });
 
-      // Automatically activate floating video container UI on incoming stream
       if (!videoStore.isVideoCallActive) {
         videoStore.setVideoCallActive(true);
       }
@@ -431,23 +454,53 @@ class PeerService {
     });
   }
 
-  public updateLocalStreamTrack(newStream: MediaStream) {
+  public updateLocalStreamTrack(newStream: MediaStream, targetPeerId?: string): boolean {
     const videoTrack = newStream.getVideoTracks()[0];
     const audioTrack = newStream.getAudioTracks()[0];
+    let hasUpdatedAnySender = false;
 
-    this.mediaCalls.forEach((call) => {
-      // PeerJS exposes peerConnection on media call instance
+    const callsToUpdate = targetPeerId
+      ? [this.mediaCalls.get(targetPeerId)].filter(Boolean) as MediaConnection[]
+      : Array.from(this.mediaCalls.values());
+
+    callsToUpdate.forEach((call) => {
       const pc = (call as any).peerConnection as RTCPeerConnection | undefined;
-      if (pc) {
-        pc.getSenders().forEach((sender) => {
-          if (sender.track?.kind === 'video' && videoTrack) {
-            sender.replaceTrack(videoTrack);
-          } else if (sender.track?.kind === 'audio' && audioTrack) {
-            sender.replaceTrack(audioTrack);
+      if (pc && pc.connectionState !== 'closed' && pc.connectionState !== 'failed') {
+        const senders = pc.getSenders();
+        let videoSender = senders.find((s) => s.track?.kind === 'video');
+        let audioSender = senders.find((s) => s.track?.kind === 'audio');
+
+        if (videoTrack) {
+          if (videoSender) {
+            videoSender.replaceTrack(videoTrack).catch((e) => console.warn('[P2P] replaceTrack video err:', e));
+            hasUpdatedAnySender = true;
+          } else {
+            try {
+              pc.addTrack(videoTrack, newStream);
+              hasUpdatedAnySender = true;
+            } catch (e) {
+              console.warn('[P2P] addTrack video err:', e);
+            }
           }
-        });
+        }
+
+        if (audioTrack) {
+          if (audioSender) {
+            audioSender.replaceTrack(audioTrack).catch((e) => console.warn('[P2P] replaceTrack audio err:', e));
+            hasUpdatedAnySender = true;
+          } else {
+            try {
+              pc.addTrack(audioTrack, newStream);
+              hasUpdatedAnySender = true;
+            } catch (e) {
+              console.warn('[P2P] addTrack audio err:', e);
+            }
+          }
+        }
       }
     });
+
+    return hasUpdatedAnySender;
   }
 
   public destroy() {
