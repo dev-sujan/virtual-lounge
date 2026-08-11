@@ -9,17 +9,29 @@ export interface ToastItem {
   message?: string;
   icon?: string;
   timestamp: number;
+  read?: boolean;
+  actionLabel?: string;
+  onAction?: () => void;
 }
 
 interface ToastState {
-  toasts: ToastItem[];
-  addToast: (toast: Omit<ToastItem, 'id' | 'timestamp'>) => void;
+  toasts: ToastItem[]; // Active floating toasts
+  history: ToastItem[]; // Notification history log
+  unreadCount: number;
+  soundEnabled: boolean;
+
+  addToast: (toast: Omit<ToastItem, 'id' | 'timestamp' | 'read'>) => void;
   removeToast: (id: string) => void;
-  clearToasts: () => void;
+  markAllRead: () => void;
+  clearHistory: () => void;
+  toggleSoundEnabled: () => void;
 }
 
-export const useToastStore = create<ToastState>((set) => ({
+export const useToastStore = create<ToastState>((set, get) => ({
   toasts: [],
+  history: [],
+  unreadCount: 0,
+  soundEnabled: true,
 
   addToast: (newToast) => {
     const id = 'toast_' + Math.random().toString(36).substring(2, 9);
@@ -27,18 +39,21 @@ export const useToastStore = create<ToastState>((set) => ({
       ...newToast,
       id,
       timestamp: Date.now(),
+      read: false,
     };
 
     set((state) => ({
-      toasts: [toast, ...state.toasts].slice(0, 5), // Keep max 5 active toasts
+      toasts: [toast, ...state.toasts].slice(0, 5), // Max 5 active floating toasts
+      history: [toast, ...state.history].slice(0, 50), // History log up to 50
+      unreadCount: state.unreadCount + 1,
     }));
 
-    // Auto-dismiss after 3.5 seconds
+    // Auto-dismiss floating toast after 4 seconds
     setTimeout(() => {
       set((state) => ({
         toasts: state.toasts.filter((t) => t.id !== id),
       }));
-    }, 3500);
+    }, 4000);
   },
 
   removeToast: (id) => {
@@ -47,5 +62,9 @@ export const useToastStore = create<ToastState>((set) => ({
     }));
   },
 
-  clearToasts: () => set({ toasts: [] }),
+  markAllRead: () => set({ unreadCount: 0, history: get().history.map((h) => ({ ...h, read: true })) }),
+
+  clearHistory: () => set({ history: [], unreadCount: 0 }),
+
+  toggleSoundEnabled: () => set({ soundEnabled: !get().soundEnabled }),
 }));

@@ -3,6 +3,7 @@ import { useRoomStore } from '../../stores/useRoomStore';
 import { useVideoStore } from '../../stores/useVideoStore';
 import { AmbientSoundPlayer } from '../common/AmbientSoundPlayer';
 import { ThemeSelector } from '../common/ThemeSelector';
+import { NotificationCenter } from '../common/NotificationCenter';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
@@ -83,11 +84,15 @@ export const RoomHeader: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-1.5 sm:space-x-2">
+          {/* Notification Center */}
+          <NotificationCenter />
+
           {/* Theme Selector */}
           <ThemeSelector />
 
           {/* Ambient Sounds Player */}
           <AmbientSoundPlayer />
+
 
 
           <button

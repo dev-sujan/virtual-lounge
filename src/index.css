@@ -142,3 +142,17 @@
   animation: floatUp 2.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
 
+@keyframes progress {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.animate-progress {
+  animation: progress 4s linear forwards;
+}
+
+
