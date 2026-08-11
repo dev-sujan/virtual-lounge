@@ -84,19 +84,52 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   toggleCamera: async () => {
-    const { localStream, isCameraOn } = get();
+    const { localStream, isCameraOn, isMicOn } = get();
     const nextCamState = !isCameraOn;
-    if (localStream) {
-      localStream.getVideoTracks().forEach((track) => {
-        track.enabled = nextCamState;
-      });
+    const { peerService } = await import('../services/webrtc/peerService');
+    const { useRoomStore } = await import('./useRoomStore');
+    const currentUser = useRoomStore.getState().currentUser;
+
+    if (!nextCamState) {
+      // Turning camera OFF: stop video track to release hardware camera completely
+      if (localStream) {
+        localStream.getVideoTracks().forEach((track) => {
+          track.stop();
+          localStream.removeTrack(track);
+        });
+      }
+      set({ isCameraOn: false });
+    } else {
+      // Turning camera ON: request fresh camera video stream
+      try {
+        const newCamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: isMicOn });
+        const newVideoTrack = newCamStream.getVideoTracks()[0];
+
+        let updatedStream = localStream;
+        if (updatedStream) {
+          // Remove old video tracks if any
+          updatedStream.getVideoTracks().forEach((t) => updatedStream!.removeTrack(t));
+          if (newVideoTrack) {
+            updatedStream.addTrack(newVideoTrack);
+          }
+        } else {
+          updatedStream = newCamStream;
+        }
+
+        // Create a new MediaStream reference so React components detect store change
+        const freshStream = new MediaStream(updatedStream.getTracks());
+        set({ localStream: freshStream, isCameraOn: true });
+
+        // Update active WebRTC peer connections with the new video track
+        peerService.updateLocalStreamTrack(freshStream);
+      } catch (err) {
+        console.error('Failed to turn camera back on:', err);
+        set({ isCameraOn: false });
+        return;
+      }
     }
-    set({ isCameraOn: nextCamState });
 
     try {
-      const { peerService } = await import('../services/webrtc/peerService');
-      const { useRoomStore } = await import('./useRoomStore');
-      const currentUser = useRoomStore.getState().currentUser;
       if (currentUser) {
         peerService.broadcast('MEDIA_STATUS_CHANGE', {
           userId: currentUser.id,

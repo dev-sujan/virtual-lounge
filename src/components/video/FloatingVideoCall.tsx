@@ -44,10 +44,10 @@ export const FloatingVideoCall: React.FC = () => {
   const dragOffset = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
+    if (localVideoRef.current && localStream && isCameraOn) {
       localVideoRef.current.srcObject = localStream;
     }
-  }, [localStream]);
+  }, [localStream, isCameraOn, isScreenSharing]);
 
   const handlePointerDown = (e: React.PointerEvent) => {
     if (isFullscreen || isMinimized) return;
@@ -236,10 +236,10 @@ const RemoteVideoItem: React.FC<RemoteVideoItemProps> = ({ remote }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (videoRef.current && remote.stream) {
+    if (videoRef.current && remote.stream && remote.isCameraOn) {
       videoRef.current.srcObject = remote.stream;
     }
-  }, [remote.stream]);
+  }, [remote.stream, remote.isCameraOn]);
 
   return (
     <div className="relative rounded-xl overflow-hidden bg-slate-900 border border-white/10 flex items-center justify-center">
