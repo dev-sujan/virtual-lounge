@@ -78,11 +78,15 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
   toggleScreenShare: async () => {
     const { isScreenSharing } = get();
+    // Dynamic import to avoid circular import issues with peerService
+    const { peerService } = await import('../services/webrtc/peerService');
+
     if (isScreenSharing) {
       // Revert to user camera media stream if available
       try {
         const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         set({ localStream: camStream, isScreenSharing: false, isCameraOn: true });
+        peerService.updateLocalStreamTrack(camStream);
       } catch {
         set({ isScreenSharing: false });
       }
@@ -91,11 +95,18 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
         const screenTrack = screenStream.getVideoTracks()[0];
         
-        screenTrack.onended = () => {
-          set({ isScreenSharing: false });
+        screenTrack.onended = async () => {
+          try {
+            const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            set({ localStream: camStream, isScreenSharing: false, isCameraOn: true });
+            peerService.updateLocalStreamTrack(camStream);
+          } catch {
+            set({ isScreenSharing: false });
+          }
         };
 
         set({ localStream: screenStream, isScreenSharing: true, isCameraOn: true });
+        peerService.updateLocalStreamTrack(screenStream);
       } catch (err) {
         console.warn('Screen share canceled or not supported:', err);
       }

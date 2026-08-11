@@ -367,6 +367,25 @@ class PeerService {
     });
   }
 
+  public updateLocalStreamTrack(newStream: MediaStream) {
+    const videoTrack = newStream.getVideoTracks()[0];
+    const audioTrack = newStream.getAudioTracks()[0];
+
+    this.mediaCalls.forEach((call) => {
+      // PeerJS exposes peerConnection on media call instance
+      const pc = (call as any).peerConnection as RTCPeerConnection | undefined;
+      if (pc) {
+        pc.getSenders().forEach((sender) => {
+          if (sender.track?.kind === 'video' && videoTrack) {
+            sender.replaceTrack(videoTrack);
+          } else if (sender.track?.kind === 'audio' && audioTrack) {
+            sender.replaceTrack(audioTrack);
+          }
+        });
+      }
+    });
+  }
+
   public destroy() {
     this.connections.forEach((conn) => conn.close());
     this.connections.clear();
