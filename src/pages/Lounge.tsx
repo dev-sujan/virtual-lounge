@@ -30,6 +30,8 @@ export const Lounge: React.FC = () => {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setLocalStream(stream);
         setVideoCallActive(true);
+        const { peerService } = await import('../services/webrtc/peerService');
+        peerService.callAllPeers(stream);
       } catch (err) {
         alert('Camera / Microphone permission required.');
       }

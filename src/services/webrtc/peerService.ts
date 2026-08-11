@@ -366,6 +366,27 @@ class PeerService {
     }
   }
 
+  public callAllPeers(stream: MediaStream) {
+    if (!this.peer) return;
+    const { peers, roomId, isHost } = useRoomStore.getState();
+
+    if (!isHost && roomId) {
+      const hostPeerId = `synclounge-room-${roomId.toLowerCase()}`;
+      if (!this.mediaCalls.has(hostPeerId)) {
+        this.callPeer(hostPeerId, stream);
+      }
+    }
+
+    peers.forEach((peerUser) => {
+      if (roomId && !peerUser.isHost) {
+        const guestPeerId = `synclounge-${roomId.toLowerCase()}-${peerUser.id.slice(-6)}`;
+        if (guestPeerId !== this.peer?.id && !this.mediaCalls.has(guestPeerId)) {
+          this.callPeer(guestPeerId, stream);
+        }
+      }
+    });
+  }
+
   private handleIncomingCall(call: MediaConnection) {
     const videoStore = useVideoStore.getState();
     const localStream = videoStore.localStream;
