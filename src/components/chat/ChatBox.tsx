@@ -19,11 +19,18 @@ import {
   Square,
   Play,
   Pause,
-  Sticker,
   Eye,
+  Pin,
+  BarChart2,
 } from 'lucide-react';
 
-const QUICK_EMOJIS = ['❤️', '🔥', '👍', '🎵', '😂', '🎉', '😮', '👏', '🚀', '💯', '✨', '🙌'];
+
+const CATEGORIZED_EMOJIS: Record<string, string[]> = {
+  '🎉 Party & Vibe': ['🔥', '💃', '🎵', '🎉', '🚀', '💯', '✨', '🙌', '🎶', '🥳', '🍸', '🎧'],
+  '😃 Smileys': ['😂', '😍', '😎', '🤩', '🥳', '🙃', '😇', '🤔', '😴', '😮', '🤯', '😜'],
+  '❤️ Love & Support': ['❤️', '💖', '💙', '💜', '🤍', '💪', '🙏', '👏', '🤝', '👑', '⭐', '🌟'],
+  '🍕 Food & Drinks': ['☕', '🍺', '🍷', '🍕', '🍔', '🍿', '🍩', '🧋', '🍉', '🎂', '🍻', '🌮'],
+};
 
 const PRESET_STICKERS = [
   { name: 'Party Vibe', url: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&auto=format&fit=crop&q=60' },
@@ -32,15 +39,34 @@ const PRESET_STICKERS = [
   { name: 'Lofi Coffee', url: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=400&auto=format&fit=crop&q=60' },
 ];
 
+const PRESET_GIFS = [
+  { name: 'Dance Party', url: 'https://media.giphy.com/media/l3q2t2KAyv88ab8hG/giphy.gif' },
+  { name: 'Vibe Cat', url: 'https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif' },
+  { name: 'Lofi Chill', url: 'https://media.giphy.com/media/13l7w7N4Vr1fh6/giphy.gif' },
+  { name: 'Hype Popcorn', url: 'https://media.giphy.com/media/gl0mkIZOW6Nwc/giphy.gif' },
+  { name: 'DJ Beat', url: 'https://media.giphy.com/media/blSTtZehjAZ8I/giphy.gif' },
+  { name: 'Mind Blown', url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' },
+];
+
 export const ChatBox: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState<string | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [attachTab, setAttachTab] = useState<'stickers' | 'gifs' | 'polls' | 'url'>('stickers');
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [showImageModal, setShowImageModal] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [mediaFilter, setMediaFilter] = useState<'all' | 'image' | 'audio' | 'poll' | 'pinned'>('all');
   const [isTypingLocal, setIsTypingLocal] = useState(false);
+  const [selectedEmojiCat, setSelectedEmojiCat] = useState<string>('🎉 Party & Vibe');
+
+  // Mobile active action menu state (for touch devices where hover isn't supported)
+  const [mobileActiveMsgId, setMobileActiveMsgId] = useState<string | null>(null);
+
+  // Poll creation state inside attach menu
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
 
   // Voice recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -56,27 +82,75 @@ export const ChatBox: React.FC = () => {
   const typingTimeoutRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { messages, typingUsers, replyingTo, addMessage, deleteMessage, addReaction, setReplyingTo, clearChat } =
-    useChatStore();
+  const {
+    messages,
+    typingUsers,
+    replyingTo,
+    addMessage,
+    deleteMessage,
+    addReaction,
+    votePollOption,
+    togglePinMessage,
+    setReplyingTo,
+    clearChat,
+  } = useChatStore();
+
   const { currentUser, isHost } = useRoomStore();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
 
-  // Handle Slash Commands (/shrug, /tableflip, /dice, /coin)
-  const processSlashCommands = (text: string): { processedText: string; isAction?: string } => {
-    if (text === '/shrug') return { processedText: '¯\\_(ツ)_/¯' };
-    if (text === '/tableflip') return { processedText: '(╯°□°）╯︵ ┻━┻' };
-    if (text === '/unflip') return { processedText: '┬─┬ノ( º _ ºノ)' };
-    if (text === '/dice') {
+  // Handle Extended Slash Commands
+  const processSlashCommands = (text: string): { processedText: string; isAction?: string; poll?: any } => {
+    const trimmed = text.trim();
+
+    if (trimmed === '/shrug') return { processedText: '¯\\_(ツ)_/¯' };
+    if (trimmed === '/tableflip') return { processedText: '(╯°□°）╯︵ ┻━┻' };
+    if (trimmed === '/unflip') return { processedText: '┬─┬ノ( º _ ºノ)' };
+
+    if (trimmed === '/dice') {
       const roll = Math.floor(Math.random() * 6) + 1;
       return { processedText: `🎲 rolled a ${roll}!`, isAction: 'dice' };
     }
-    if (text === '/coin') {
+
+    if (trimmed === '/coin') {
       const coin = Math.random() > 0.5 ? 'Heads 🪙' : 'Tails 🪙';
       return { processedText: `flipped a coin: ${coin}`, isAction: 'coin' };
     }
+
+    if (trimmed.startsWith('/8ball')) {
+      const answers = [
+        'It is certain! 🎱',
+        'Without a doubt! ✨',
+        'Ask again later 🔮',
+        'Cannot predict now 🌫️',
+        'Don’t count on it ❌',
+        'My sources say no 🚫',
+        'Outlook good! 🚀',
+        'Signs point to yes! ✅',
+      ];
+      const question = trimmed.replace('/8ball', '').trim();
+      const ans = answers[Math.floor(Math.random() * answers.length)];
+      return { processedText: `🎱 asked: "${question || 'the future'}" → ${ans}`, isAction: '8ball' };
+    }
+
+    // /poll "Question" "Opt 1" "Opt 2"
+    if (trimmed.startsWith('/poll')) {
+      const matches = trimmed.match(/"([^"]+)"/g);
+      if (matches && matches.length >= 3) {
+        const q = matches[0].replace(/"/g, '');
+        const opts = matches.slice(1).map((m) => m.replace(/"/g, ''));
+        return {
+          processedText: `📊 Lounge Poll: ${q}`,
+          poll: {
+            question: q,
+            options: opts.map((opt) => ({ text: opt, votes: [] })),
+          },
+        };
+      }
+    }
+
     return { processedText: text };
   };
 
@@ -107,25 +181,31 @@ export const ChatBox: React.FC = () => {
     }, 2000);
   };
 
-  const handleSendMessage = (e?: React.FormEvent, customImg?: string) => {
+  const handleSendMessage = (e?: React.FormEvent, customImg?: string, customPoll?: any) => {
     if (e) e.preventDefault();
     const rawText = inputText.trim();
-    if (!rawText && !customImg && !imageUrlInput) return;
+    if (!rawText && !customImg && !imageUrlInput && !customPoll) return;
     if (!currentUser) return;
 
-    const { processedText, isAction } = processSlashCommands(rawText);
+    const { processedText, isAction, poll: slashPoll } = processSlashCommands(rawText);
     const finalImg = customImg || (imageUrlInput.trim() ? imageUrlInput.trim() : undefined);
+    const finalPoll = customPoll || slashPoll;
 
     const newMsg: ChatMessage = {
       id: 'msg_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
       senderId: currentUser.id,
       senderName: currentUser.displayName,
       senderAvatarColor: currentUser.avatarColor,
-      text: isAction ? `${currentUser.displayName} ${processedText}` : processedText || (finalImg ? 'Shared an image' : ''),
+      text: finalPoll
+        ? `📊 Poll: ${finalPoll.question}`
+        : isAction
+        ? `${currentUser.displayName} ${processedText}`
+        : processedText || (finalImg ? 'Shared an image' : ''),
       timestamp: Date.now(),
       reactions: {},
       imageUrl: finalImg,
-      attachmentType: finalImg ? 'image' : undefined,
+      attachmentType: finalPoll ? 'poll' : finalImg ? 'image' : undefined,
+      poll: finalPoll,
       isSystem: !!isAction,
       replyTo: replyingTo
         ? {
@@ -153,6 +233,31 @@ export const ChatBox: React.FC = () => {
         isTyping: false,
       });
     }
+  };
+
+  const handleCreatePoll = () => {
+    if (!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2) return;
+    const validOpts = pollOptions.filter((o) => o.trim());
+
+    const pollData = {
+      question: pollQuestion.trim(),
+      options: validOpts.map((text) => ({ text, votes: [] })),
+    };
+
+    handleSendMessage(undefined, undefined, pollData);
+    setPollQuestion('');
+    setPollOptions(['', '']);
+  };
+
+  const handleVotePoll = (msgId: string, optionIndex: number) => {
+    if (!currentUser) return;
+    votePollOption(msgId, optionIndex, currentUser.id);
+    peerService.broadcast('CHAT_POLL_VOTE', { msgId, optionIndex, userId: currentUser.id });
+  };
+
+  const handleTogglePin = (msgId: string) => {
+    togglePinMessage(msgId);
+    peerService.broadcast('CHAT_PIN_TOGGLE', { msgId });
   };
 
   // Voice Note Recording Logic
@@ -281,25 +386,64 @@ export const ChatBox: React.FC = () => {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Render markdown & auto-link formatting
+  const renderFormattedContent = (text: string) => {
+    if (!text) return null;
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+
+    return (
+      <span>
+        {parts.map((part, idx) => {
+          if (part.match(urlRegex)) {
+            return (
+              <a
+                key={idx}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-300 hover:text-indigo-100 underline break-all font-mono"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {part}
+              </a>
+            );
+          }
+          return <span key={idx}>{part}</span>;
+        })}
+      </span>
+    );
+  };
+
+  const pinnedMessages = messages.filter((m) => m.isPinned);
   const activeTypingNames = Object.values(typingUsers).filter(
     (name) => name !== currentUser?.displayName
   );
 
-  const filteredMessages = isSearching && searchQuery.trim()
-    ? messages.filter(
-        (m) =>
-          m.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          m.senderName.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : messages;
+  let filteredMessages = messages;
+
+  if (isSearching && searchQuery.trim()) {
+    filteredMessages = filteredMessages.filter(
+      (m) =>
+        m.text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        m.senderName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }
+
+  if (mediaFilter !== 'all') {
+    if (mediaFilter === 'image') filteredMessages = filteredMessages.filter((m) => m.imageUrl);
+    else if (mediaFilter === 'audio') filteredMessages = filteredMessages.filter((m) => m.audioUrl);
+    else if (mediaFilter === 'poll') filteredMessages = filteredMessages.filter((m) => m.poll);
+    else if (mediaFilter === 'pinned') filteredMessages = filteredMessages.filter((m) => m.isPinned);
+  }
 
   return (
-    <div className="glass-card rounded-2xl border border-white/10 flex flex-col h-[560px] max-h-[85vh] shadow-2xl overflow-hidden relative">
-      {/* Header Bar with Search & Export Tools */}
-      <div className="px-4 py-2.5 bg-slate-900/90 border-b border-white/10 flex items-center justify-between z-10">
+    <div className="glass-card rounded-2xl border border-white/10 flex flex-col h-[580px] max-h-[85vh] shadow-2xl overflow-hidden relative">
+      {/* Header Bar with Search, Media Filters & Export Tools */}
+      <div className="px-4 py-2.5 bg-slate-900/90 border-b border-white/10 flex items-center justify-between z-10 shrink-0">
         <div className="flex items-center space-x-2">
           <Sparkles className="w-4 h-4 text-indigo-400" />
-          <span className="text-xs font-bold text-white tracking-wide">P2P Encrypted Chat</span>
+          <span className="text-xs font-bold text-white tracking-wide">P2P Lounge Chat</span>
           <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-mono px-2 py-0.5 rounded-full border border-indigo-500/30">
             {messages.length} msgs
           </span>
@@ -315,6 +459,7 @@ export const ChatBox: React.FC = () => {
           >
             <Search className="w-4 h-4" />
           </button>
+
           <button
             onClick={exportChatHistory}
             className="p-1.5 text-slate-400 hover:text-white rounded-lg transition"
@@ -322,6 +467,7 @@ export const ChatBox: React.FC = () => {
           >
             <Download className="w-4 h-4" />
           </button>
+
           {isHost && messages.length > 0 && (
             <button
               onClick={clearChat}
@@ -334,9 +480,76 @@ export const ChatBox: React.FC = () => {
         </div>
       </div>
 
-      {/* Live Search Input Bar */}
+      {/* Filter Tabs Bar */}
+      <div className="px-3 py-1.5 bg-slate-950/40 border-b border-white/5 flex items-center space-x-1 overflow-x-auto text-[11px] shrink-0">
+        <button
+          onClick={() => setMediaFilter('all')}
+          className={`px-2.5 py-1 rounded-lg font-semibold transition ${
+            mediaFilter === 'all' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          All Feed
+        </button>
+        <button
+          onClick={() => setMediaFilter('image')}
+          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
+            mediaFilter === 'image' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <ImageIcon className="w-3 h-3" />
+          <span>Photos</span>
+        </button>
+        <button
+          onClick={() => setMediaFilter('audio')}
+          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
+            mediaFilter === 'audio' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Mic className="w-3 h-3" />
+          <span>Voice</span>
+        </button>
+        <button
+          onClick={() => setMediaFilter('poll')}
+          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
+            mediaFilter === 'poll' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <BarChart2 className="w-3 h-3" />
+          <span>Polls</span>
+        </button>
+        <button
+          onClick={() => setMediaFilter('pinned')}
+          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
+            mediaFilter === 'pinned' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Pin className="w-3 h-3" />
+          <span>Pinned ({pinnedMessages.length})</span>
+        </button>
+      </div>
+
+      {/* Pinned Announcement Bar */}
+      {pinnedMessages.length > 0 && mediaFilter !== 'pinned' && (
+        <div className="bg-indigo-950/60 border-b border-indigo-500/30 px-3 py-2 flex items-center justify-between shrink-0 shadow-md">
+          <div className="flex items-center space-x-2 overflow-hidden">
+            <Pin className="w-3.5 h-3.5 text-indigo-400 shrink-0 animate-bounce" />
+            <div className="text-xs truncate">
+              <span className="font-bold text-indigo-300">Pinned by {pinnedMessages[pinnedMessages.length - 1].senderName}: </span>
+              <span className="text-white">{pinnedMessages[pinnedMessages.length - 1].text}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setMediaFilter('pinned')}
+            className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 shrink-0 font-medium hover:bg-indigo-500/30"
+          >
+            View All ({pinnedMessages.length})
+          </button>
+        </div>
+      )}
+
+      {/* Live Search Bar */}
       {isSearching && (
-        <div className="px-4 py-2 bg-indigo-950/40 border-b border-indigo-500/30 flex items-center space-x-2 animate-fadeIn">
+        <div className="px-4 py-2 bg-indigo-950/40 border-b border-indigo-500/30 flex items-center space-x-2 animate-fadeIn shrink-0">
           <Search className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
           <input
             type="text"
@@ -365,12 +578,13 @@ export const ChatBox: React.FC = () => {
             <p className="text-xs text-slate-500 max-w-xs mt-1">
               {isSearching
                 ? 'Try searching with a different keyword or username.'
-                : 'Send text, emojis, image links, voice notes, or slash commands (/dice, /shrug).'}
+                : 'Send text, emojis, image links, voice notes, live polls (/poll), or commands (/8ball, /dice).'}
             </p>
           </div>
         ) : (
           filteredMessages.map((msg) => {
             const isMe = msg.senderId === currentUser?.id;
+            const isMobileSelected = mobileActiveMsgId === msg.id;
 
             if (msg.isSystem) {
               return (
@@ -387,6 +601,7 @@ export const ChatBox: React.FC = () => {
                 key={msg.id}
                 className={`flex flex-col group relative ${isMe ? 'items-end' : 'items-start'}`}
               >
+                {/* Reply Indicator */}
                 {msg.replyTo && (
                   <div className="mb-1 text-[11px] text-slate-400 bg-slate-900/60 px-3 py-1 rounded-lg border-l-2 border-indigo-500 max-w-[80%] truncate">
                     <span className="font-semibold text-indigo-300">Replying to {msg.replyTo.senderName}: </span>
@@ -394,7 +609,7 @@ export const ChatBox: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex items-start space-x-2 max-w-[85%] sm:max-w-[75%]">
+                <div className="flex items-start space-x-2 max-w-[88%] sm:max-w-[78%]">
                   {!isMe && (
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow mt-0.5"
@@ -412,12 +627,21 @@ export const ChatBox: React.FC = () => {
                     )}
 
                     <div
-                      className={`p-3 rounded-2xl text-sm relative shadow-md ${
+                      onClick={() => setMobileActiveMsgId(isMobileSelected ? null : msg.id)}
+                      className={`p-3 rounded-2xl text-sm relative shadow-md transition-all ${
                         isMe
                           ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-tr-none'
                           : 'bg-slate-800/90 text-slate-100 border border-white/10 rounded-tl-none'
-                      }`}
+                      } ${msg.isPinned ? 'ring-2 ring-indigo-400/50 shadow-indigo-500/20' : ''}`}
                     >
+                      {/* Pinned Badge */}
+                      {msg.isPinned && (
+                        <div className="mb-1.5 flex items-center space-x-1 text-[10px] text-indigo-300 font-bold uppercase tracking-wider">
+                          <Pin className="w-3 h-3 fill-current" />
+                          <span>Pinned Message</span>
+                        </div>
+                      )}
+
                       {/* Image Attachment */}
                       {msg.imageUrl && (
                         <div
@@ -454,13 +678,60 @@ export const ChatBox: React.FC = () => {
                         </div>
                       )}
 
-                      <p className="whitespace-pre-wrap break-words leading-relaxed">{msg.text}</p>
+                      {/* Interactive Chat Poll */}
+                      {msg.poll && (
+                        <div className="space-y-2 mb-2 p-3 bg-black/40 rounded-xl border border-white/10 min-w-[220px]">
+                          <div className="flex items-center justify-between text-xs font-bold text-indigo-300">
+                            <span className="flex items-center space-x-1">
+                              <BarChart2 className="w-3.5 h-3.5" />
+                              <span>{msg.poll.question}</span>
+                            </span>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            {msg.poll.options.map((opt, idx) => {
+                              const totalVotes = msg.poll!.options.reduce((sum, o) => sum + o.votes.length, 0);
+                              const pct = totalVotes > 0 ? Math.round((opt.votes.length / totalVotes) * 100) : 0;
+                              const hasVoted = currentUser && opt.votes.includes(currentUser.id);
+
+                              return (
+                                <button
+                                  key={idx}
+                                  onClick={() => handleVotePoll(msg.id, idx)}
+                                  className={`w-full p-2 rounded-lg text-xs flex flex-col transition border relative overflow-hidden text-left ${
+                                    hasVoted
+                                      ? 'bg-indigo-500/30 border-indigo-400 text-white font-bold'
+                                      : 'bg-white/5 border-white/10 text-slate-200 hover:bg-white/10'
+                                  }`}
+                                >
+                                  {/* Progress bar background */}
+                                  <div
+                                    className="absolute inset-0 bg-indigo-500/20 transition-all duration-500"
+                                    style={{ width: `${pct}%` }}
+                                  />
+
+                                  <div className="relative z-10 flex justify-between items-center w-full">
+                                    <span className="truncate pr-2">{opt.text}</span>
+                                    <span className="font-mono text-[10px] font-bold text-indigo-300 shrink-0">
+                                      {pct}% ({opt.votes.length})
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Text content with formatting */}
+                      {!msg.poll && <p className="whitespace-pre-wrap break-words leading-relaxed">{renderFormattedContent(msg.text)}</p>}
+
                       <span className="block text-[9px] opacity-60 text-right mt-1 font-mono">
                         {formatTimestamp(msg.timestamp)}
                       </span>
                     </div>
 
-                    {/* Reactions */}
+                    {/* Reactions Pill Display */}
                     {Object.keys(msg.reactions).length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {Object.entries(msg.reactions).map(([emoji, userIds]) => (
@@ -482,10 +753,12 @@ export const ChatBox: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Message Hover Actions */}
+                {/* Action Toolbar - Desktop Hover + Mobile Touch Fix */}
                 <div
-                  className={`absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center space-x-1 bg-slate-900/90 border border-white/10 rounded-full px-2 py-1 shadow-lg z-10 ${
-                    isMe ? 'right-[80%]' : 'left-[80%]'
+                  className={`absolute top-0 transition-all flex items-center space-x-1 bg-slate-900/95 border border-white/15 rounded-full px-2 py-1 shadow-xl z-10 ${
+                    isMe ? 'right-[82%]' : 'left-[82%]'
+                  } ${
+                    isMobileSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
                   }`}
                 >
                   <button
@@ -502,6 +775,15 @@ export const ChatBox: React.FC = () => {
                   >
                     <Reply className="w-3.5 h-3.5" />
                   </button>
+                  <button
+                    onClick={() => handleTogglePin(msg.id)}
+                    className={`p-1 rounded-full transition ${
+                      msg.isPinned ? 'text-indigo-400' : 'text-slate-400 hover:text-indigo-300'
+                    }`}
+                    title={msg.isPinned ? 'Unpin Message' : 'Pin Message'}
+                  >
+                    <Pin className="w-3.5 h-3.5" />
+                  </button>
                   {isMe && (
                     <button
                       onClick={() => handleDelete(msg.id)}
@@ -513,18 +795,34 @@ export const ChatBox: React.FC = () => {
                   )}
                 </div>
 
-                {/* Quick Emoji Popover */}
+                {/* Categorized Quick Emoji Popover */}
                 {showEmojiPicker === msg.id && (
-                  <div className="mt-2 p-1.5 rounded-2xl bg-slate-900/95 border border-white/15 flex space-x-1 shadow-2xl z-20 animate-fadeIn">
-                    {QUICK_EMOJIS.slice(0, 8).map((emoji) => (
-                      <button
-                        key={emoji}
-                        onClick={() => handleAddReaction(msg.id, emoji)}
-                        className="hover:scale-125 transition transform p-1 text-base"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
+                  <div className="mt-2 p-2 rounded-2xl bg-slate-900/95 border border-white/15 shadow-2xl z-20 animate-fadeIn space-y-1.5 max-w-xs">
+                    <div className="flex space-x-1 border-b border-white/10 pb-1 overflow-x-auto text-[10px]">
+                      {Object.keys(CATEGORIZED_EMOJIS).map((cat) => (
+                        <button
+                          key={cat}
+                          onClick={() => setSelectedEmojiCat(cat)}
+                          className={`px-2 py-0.5 rounded-lg whitespace-nowrap font-medium transition ${
+                            selectedEmojiCat === cat ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {cat.split(' ')[0]}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-6 gap-1">
+                      {CATEGORIZED_EMOJIS[selectedEmojiCat]?.map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => handleAddReaction(msg.id, emoji)}
+                          className="hover:scale-125 transition transform p-1 text-base rounded hover:bg-white/10"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -536,7 +834,7 @@ export const ChatBox: React.FC = () => {
 
       {/* Typing Indicator */}
       {activeTypingNames.length > 0 && (
-        <div className="px-4 py-1 text-xs text-indigo-300 italic bg-slate-900/40 flex items-center space-x-1.5">
+        <div className="px-4 py-1 text-xs text-indigo-300 italic bg-slate-900/40 flex items-center space-x-1.5 shrink-0">
           <div className="flex space-x-1">
             <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" />
           </div>
@@ -548,7 +846,7 @@ export const ChatBox: React.FC = () => {
 
       {/* Reply Preview */}
       {replyingTo && (
-        <div className="bg-indigo-950/50 px-4 py-2 border-t border-indigo-500/30 flex items-center justify-between">
+        <div className="bg-indigo-950/50 px-4 py-2 border-t border-indigo-500/30 flex items-center justify-between shrink-0">
           <div className="text-xs overflow-hidden">
             <span className="font-bold text-indigo-300">Replying to {replyingTo.senderName}: </span>
             <span className="text-slate-300 truncate">{replyingTo.text}</span>
@@ -562,40 +860,51 @@ export const ChatBox: React.FC = () => {
         </div>
       )}
 
-      {/* Attachment Popover Panel */}
+      {/* Attachment Popover Panel (Stickers, GIFs, Poll Creator, URL) */}
       {showAttachMenu && (
-        <div className="p-4 bg-slate-900/95 border-t border-white/10 space-y-3 animate-fadeIn z-20">
+        <div className="p-4 bg-slate-900/95 border-t border-white/10 space-y-3 animate-fadeIn z-20 shrink-0">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-white flex items-center space-x-1.5">
-              <Sticker className="w-4 h-4 text-indigo-400" />
-              <span>Share Image or Preset Sticker</span>
-            </span>
+            <div className="flex space-x-2 text-xs font-bold">
+              <button
+                onClick={() => setAttachTab('stickers')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  attachTab === 'stickers' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Stickers
+              </button>
+              <button
+                onClick={() => setAttachTab('gifs')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  attachTab === 'gifs' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                GIFs
+              </button>
+              <button
+                onClick={() => setAttachTab('polls')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  attachTab === 'polls' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Polls
+              </button>
+              <button
+                onClick={() => setAttachTab('url')}
+                className={`px-3 py-1 rounded-lg transition ${
+                  attachTab === 'url' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Image URL
+              </button>
+            </div>
+
             <button onClick={() => setShowAttachMenu(false)} className="text-slate-400 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex space-x-2">
-            <input
-              type="text"
-              value={imageUrlInput}
-              onChange={(e) => setImageUrlInput(e.target.value)}
-              placeholder="Paste Image / GIF URL..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-            />
-            <button
-              onClick={() => handleSendMessage()}
-              disabled={!imageUrlInput.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition"
-            >
-              Attach
-            </button>
-          </div>
-
-          <div>
-            <span className="text-[10px] text-slate-400 uppercase font-semibold block mb-1.5">
-              Lounge Preset Stickers
-            </span>
+          {attachTab === 'stickers' && (
             <div className="grid grid-cols-4 gap-2">
               {PRESET_STICKERS.map((s) => (
                 <button
@@ -610,13 +919,97 @@ export const ChatBox: React.FC = () => {
                 </button>
               ))}
             </div>
-          </div>
+          )}
+
+          {attachTab === 'gifs' && (
+            <div className="grid grid-cols-3 gap-2">
+              {PRESET_GIFS.map((g) => (
+                <button
+                  key={g.name}
+                  onClick={() => handleSendMessage(undefined, g.url)}
+                  className="rounded-xl overflow-hidden border border-white/10 hover:border-indigo-400 transition relative group h-16 shadow"
+                >
+                  <img src={g.url} alt={g.name} className="w-full h-full object-cover" />
+                  <span className="absolute inset-0 bg-black/40 flex items-center justify-center text-[10px] font-bold text-white opacity-90 group-hover:opacity-100">
+                    {g.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {attachTab === 'polls' && (
+            <div className="space-y-2 text-xs">
+              <input
+                type="text"
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                placeholder="Poll Question (e.g., What genre next?)"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+
+              <div className="space-y-1">
+                {pollOptions.map((opt, idx) => (
+                  <input
+                    key={idx}
+                    type="text"
+                    value={opt}
+                    onChange={(e) => {
+                      const copy = [...pollOptions];
+                      copy[idx] = e.target.value;
+                      setPollOptions(copy);
+                    }}
+                    placeholder={`Option ${idx + 1}`}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  />
+                ))}
+              </div>
+
+              <div className="flex justify-between items-center pt-1">
+                {pollOptions.length < 4 && (
+                  <button
+                    onClick={() => setPollOptions([...pollOptions, ''])}
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold"
+                  >
+                    + Add Option
+                  </button>
+                )}
+
+                <button
+                  onClick={handleCreatePoll}
+                  disabled={!pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2}
+                  className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-bold px-4 py-1.5 rounded-xl shadow transition ml-auto"
+                >
+                  Create Poll
+                </button>
+              </div>
+            </div>
+          )}
+
+          {attachTab === 'url' && (
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={imageUrlInput}
+                onChange={(e) => setImageUrlInput(e.target.value)}
+                placeholder="Paste Image / GIF URL..."
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                onClick={() => handleSendMessage()}
+                disabled={!imageUrlInput.trim()}
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition"
+              >
+                Attach
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {/* Voice Recording Overlay */}
       {isRecording ? (
-        <div className="p-3 bg-rose-950/80 border-t border-rose-500/40 flex items-center justify-between animate-pulse">
+        <div className="p-3 bg-rose-950/80 border-t border-rose-500/40 flex items-center justify-between animate-pulse shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
             <span className="text-xs font-bold text-rose-200">
@@ -642,14 +1035,14 @@ export const ChatBox: React.FC = () => {
         </div>
       ) : (
         /* Chat Input Form */
-        <form onSubmit={handleSendMessage} className="p-3 bg-slate-900/80 border-t border-white/10 flex items-center space-x-2">
+        <form onSubmit={handleSendMessage} className="p-3 bg-slate-900/80 border-t border-white/10 flex items-center space-x-2 shrink-0">
           <button
             type="button"
             onClick={() => setShowAttachMenu(!showAttachMenu)}
             className={`p-2 rounded-xl transition ${
               showAttachMenu ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
-            title="Attach Image / Sticker"
+            title="Attach Image / Poll / GIF"
           >
             <ImageIcon className="w-4 h-4" />
           </button>
@@ -668,7 +1061,7 @@ export const ChatBox: React.FC = () => {
               type="text"
               value={inputText}
               onChange={handleInputChange}
-              placeholder="Type message or /shrug, /dice..."
+              placeholder="Type message or /poll, /8ball, /dice..."
               className="w-full bg-white/5 border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition"
             />
           </div>

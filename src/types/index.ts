@@ -51,6 +51,16 @@ export interface ChatReaction {
   users: string[]; // User IDs
 }
 
+export interface ChatPollOption {
+  text: string;
+  votes: string[]; // User IDs
+}
+
+export interface ChatPoll {
+  question: string;
+  options: ChatPollOption[];
+}
+
 export interface ChatMessage {
   id: string;
   senderId: string;
@@ -67,7 +77,9 @@ export interface ChatMessage {
   imageUrl?: string;
   audioUrl?: string;
   audioDuration?: number;
-  attachmentType?: 'image' | 'audio' | 'sticker';
+  attachmentType?: 'image' | 'audio' | 'sticker' | 'poll';
+  poll?: ChatPoll;
+  isPinned?: boolean;
   isSystem?: boolean;
 }
 
@@ -111,6 +123,8 @@ export type SyncEventType =
   | 'CHAT_MESSAGE'
   | 'CHAT_REACTION'
   | 'CHAT_DELETE'
+  | 'CHAT_POLL_VOTE'
+  | 'CHAT_PIN_TOGGLE'
   | 'TYPING_INDICATOR'
   | 'GAME_STATE_CHANGE'
   | 'MEDIA_STATUS_CHANGE'
@@ -125,4 +139,5 @@ export interface SyncMessagePayload {
   timestamp: number;
   payload: any;
 }
+
 

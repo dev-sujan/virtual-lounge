@@ -285,6 +285,19 @@ class PeerService {
         break;
       }
 
+      case 'CHAT_POLL_VOTE': {
+        const { msgId, optionIndex, userId } = msg.payload;
+        useChatStore.getState().votePollOption(msgId, optionIndex, userId);
+        break;
+      }
+
+      case 'CHAT_PIN_TOGGLE': {
+        const { msgId } = msg.payload;
+        useChatStore.getState().togglePinMessage(msgId);
+        break;
+      }
+
+
       case 'CHAT_DELETE': {
         useChatStore.getState().deleteMessage(msg.payload.msgId);
         break;

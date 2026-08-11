@@ -11,6 +11,8 @@ interface ChatState {
   setMessages: (msgs: ChatMessage[]) => void;
   deleteMessage: (msgId: string) => void;
   addReaction: (msgId: string, emoji: string, userId: string) => void;
+  votePollOption: (msgId: string, optionIndex: number, userId: string) => void;
+  togglePinMessage: (msgId: string) => void;
   setTypingUser: (userId: string, name: string, isTyping: boolean) => void;
   setReplyingTo: (msg: ChatMessage | null) => void;
   clearChat: () => void;
@@ -55,6 +57,45 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messages });
   },
 
+  votePollOption: (msgId, optionIndex, userId) => {
+    const messages = get().messages.map((msg) => {
+      if (msg.id !== msgId || !msg.poll) return msg;
+
+      const updatedOptions = msg.poll.options.map((opt, idx) => {
+        // Toggle user vote on selected option, remove from others
+        let votes = [...opt.votes];
+        if (idx === optionIndex) {
+          if (votes.includes(userId)) {
+            votes = votes.filter((id) => id !== userId);
+          } else {
+            votes.push(userId);
+          }
+        } else {
+          votes = votes.filter((id) => id !== userId);
+        }
+        return { ...opt, votes };
+      });
+
+      return {
+        ...msg,
+        poll: {
+          ...msg.poll,
+          options: updatedOptions,
+        },
+      };
+    });
+
+    set({ messages });
+  },
+
+  togglePinMessage: (msgId) => {
+    const messages = get().messages.map((msg) => {
+      if (msg.id !== msgId) return msg;
+      return { ...msg, isPinned: !msg.isPinned };
+    });
+    set({ messages });
+  },
+
   setTypingUser: (userId, name, isTyping) => {
     const current = { ...get().typingUsers };
     if (isTyping) {
@@ -69,3 +110,4 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   clearChat: () => set({ messages: [], typingUsers: {}, replyingTo: null }),
 }));
+
