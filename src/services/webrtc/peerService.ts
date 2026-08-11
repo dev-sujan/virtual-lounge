@@ -7,7 +7,8 @@ import { useChatStore } from '../../stores/useChatStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useVideoStore } from '../../stores/useVideoStore';
 import { useToastStore } from '../../stores/useToastStore';
-import { playMessageSound, playReactionSound } from '../../utils/soundUtils';
+import { playMessageSound, playReactionSound, playPlaySound, playPauseSound, playCallSound } from '../../utils/soundUtils';
+import { encryptPayload, decryptPayload } from '../../utils/cryptoUtils';
 
 type MessageHandler = (msg: SyncMessagePayload) => void;
 
@@ -29,9 +30,9 @@ class PeerService {
 
       try {
         this.broadcastChannel = new BroadcastChannel(`synclounge_bcast_${roomId}`);
-        this.broadcastChannel.onmessage = (event) => {
+        this.broadcastChannel.onmessage = async (event) => {
           if (event.data && event.data.senderId !== userId) {
-            this.handleIncomingMessage(event.data);
+            await this.handleIncomingMessage(event.data);
           }
         };
       } catch (err) {
@@ -115,8 +116,8 @@ class PeerService {
   private setupDataConnection(conn: DataConnection) {
     this.connections.set(conn.peer, conn);
 
-    conn.on('data', (data: any) => {
-      this.handleIncomingMessage(data as SyncMessagePayload);
+    conn.on('data', async (data: any) => {
+      await this.handleIncomingMessage(data as SyncMessagePayload);
     });
 
     conn.on('close', () => {
@@ -137,16 +138,19 @@ class PeerService {
     };
   }
 
-  public broadcast(type: SyncEventType, payload: any) {
-
-    const { currentUser } = useRoomStore.getState();
+  public async broadcast(type: SyncEventType, payload: any) {
+    const { currentUser, roomId, password } = useRoomStore.getState();
     if (!currentUser) return;
+
+    // Encrypt payload with AES-256-GCM E2EE secret
+    const secretKey = `${roomId}_${password || 'default_secret'}`;
+    const encryptedPayload = await encryptPayload(payload, secretKey);
 
     const message: SyncMessagePayload = {
       type,
       senderId: currentUser.id,
       timestamp: Date.now(),
-      payload,
+      payload: encryptedPayload,
     };
 
     this.connections.forEach((conn) => {
@@ -168,14 +172,20 @@ class PeerService {
     }
   }
 
-  private handleIncomingMessage(msg: SyncMessagePayload) {
+  private async handleIncomingMessage(msg: SyncMessagePayload) {
     if (!msg || !msg.type) return;
 
-    const { password, currentUser, isHost } = useRoomStore.getState();
+    const { password, currentUser, isHost, roomId } = useRoomStore.getState();
+    const toastStore = useToastStore.getState();
+
+    // Decrypt payload using AES-256-GCM E2EE secret key
+    const secretKey = `${roomId}_${password || 'default_secret'}`;
+    const payload = await decryptPayload(msg.payload, secretKey);
 
     switch (msg.type) {
+
       case 'JOIN_REQUEST': {
-        const { password: reqPassword, user: reqUser } = msg.payload;
+        const { password: reqPassword, user: reqUser } = payload;
         if (password && reqPassword !== password) {
           this.broadcast('JOIN_RESPONSE', {
             targetUserId: reqUser.id,
@@ -186,10 +196,10 @@ class PeerService {
         }
 
         useRoomStore.getState().addPeer(reqUser);
-        useToastStore.getState().addToast({
+        toastStore.addToast({
           category: 'info',
           title: `${reqUser.displayName} joined the lounge`,
-          message: 'Real-time peer connected',
+          message: 'Real-time E2E encrypted peer connected',
         });
 
         useChatStore.getState().addMessage({
@@ -222,7 +232,7 @@ class PeerService {
       }
 
       case 'JOIN_RESPONSE': {
-        const { targetUserId, success, error, roomState } = msg.payload;
+        const { targetUserId, success, error, roomState } = payload;
         if (currentUser && targetUserId === currentUser.id) {
           if (!success) {
             useRoomStore.getState().setConnectionStatus('error', error || 'Room join rejected');
@@ -241,16 +251,43 @@ class PeerService {
       }
 
       case 'PLAYBACK_CHANGE': {
-        useMusicStore.getState().setPlaybackState(msg.payload);
+        const updates = payload;
+        useMusicStore.getState().setPlaybackState(updates);
+
+        if (updates.updatedBy && updates.updatedBy !== currentUser?.displayName) {
+          if (updates.isPlaying !== undefined) {
+            if (updates.isPlaying) {
+              playPlaySound();
+              toastStore.addToast({
+                category: 'music',
+                title: '▶️ Music Resumed',
+                message: `${updates.updatedBy} started music playback`,
+              });
+            } else {
+              playPauseSound();
+              toastStore.addToast({
+                category: 'music',
+                title: '⏸️ Music Paused',
+                message: `${updates.updatedBy} paused music playback`,
+              });
+            }
+          }
+        }
         break;
       }
 
       case 'QUEUE_CHANGE': {
-        const { queue, currentTrack, action, item, user } = msg.payload;
+        const { queue, currentTrack, action, item, user } = payload;
         if (queue) useMusicStore.getState().setQueue(queue);
         if (currentTrack !== undefined) useMusicStore.getState().setCurrentTrack(currentTrack);
 
-        if (action && item && user) {
+        if (action && item && user && user !== currentUser?.displayName) {
+          toastStore.addToast({
+            category: 'music',
+            title: `🎵 Music Queue Updated`,
+            message: `${user} ${action} "${item.title}"`,
+          });
+
           useChatStore.getState().addMessage({
             id: 'sys_' + Date.now(),
             senderId: 'system',
@@ -266,51 +303,59 @@ class PeerService {
       }
 
       case 'SKIP_VOTE_CHANGE': {
-        const { votes } = msg.payload;
+        const { votes } = payload;
         if (votes) useMusicStore.getState().setSkipVotes(votes);
         break;
       }
 
 
+
       case 'CHAT_MESSAGE': {
-        useChatStore.getState().addMessage(msg.payload);
+        useChatStore.getState().addMessage(payload);
         playMessageSound();
+        if (payload.senderName && payload.senderName !== currentUser?.displayName) {
+          toastStore.addToast({
+            category: 'info',
+            title: `💬 New message from ${payload.senderName}`,
+            message: payload.text,
+          });
+        }
         break;
       }
 
       case 'CHAT_REACTION': {
-        const { msgId, emoji, userId } = msg.payload;
+        const { msgId, emoji, userId } = payload;
         useChatStore.getState().addReaction(msgId, emoji, userId);
         playReactionSound();
         break;
       }
 
+
       case 'CHAT_POLL_VOTE': {
-        const { msgId, optionIndex, userId } = msg.payload;
+        const { msgId, optionIndex, userId } = payload;
         useChatStore.getState().votePollOption(msgId, optionIndex, userId);
         break;
       }
 
       case 'CHAT_PIN_TOGGLE': {
-        const { msgId } = msg.payload;
+        const { msgId } = payload;
         useChatStore.getState().togglePinMessage(msgId);
         break;
       }
 
-
       case 'CHAT_DELETE': {
-        useChatStore.getState().deleteMessage(msg.payload.msgId);
+        useChatStore.getState().deleteMessage(payload.msgId);
         break;
       }
 
       case 'TYPING_INDICATOR': {
-        const { userId, name, isTyping } = msg.payload;
+        const { userId, name, isTyping } = payload;
         useChatStore.getState().setTypingUser(userId, name, isTyping);
         break;
       }
 
       case 'GAME_STATE_CHANGE': {
-        const { gameType, state } = msg.payload;
+        const { gameType, state } = payload;
         const gameStore = useGameStore.getState();
         if (gameType === 'tictactoe') {
           gameStore.updateTicTacToe(state);
@@ -323,7 +368,7 @@ class PeerService {
       }
 
       case 'PEER_PRESENCE_UPDATE': {
-        const { user } = msg.payload;
+        const { user } = payload;
         if (user) {
           useRoomStore.getState().addPeer(user);
         }
@@ -331,11 +376,13 @@ class PeerService {
       }
 
       case 'MEDIA_STATUS_CHANGE': {
-        const { userId, userName, isMicOn, isCameraOn } = msg.payload;
+        const { userId, userName, isMicOn, isCameraOn } = payload;
         useVideoStore.getState().updateRemoteStatusByUserId(userId, {
           ...(isMicOn !== undefined && { isMicOn }),
           ...(isCameraOn !== undefined && { isCameraOn }),
         });
+
+        playCallSound();
 
         const toastStore = useToastStore.getState();
         if (isMicOn !== undefined) {
@@ -355,8 +402,10 @@ class PeerService {
         break;
       }
 
+
       case 'LEAVE_ROOM': {
-        const { userId, userName } = msg.payload;
+        const { userId, userName } = payload;
+
         useRoomStore.getState().removePeer(userId);
         useToastStore.getState().addToast({
           category: 'warning',
