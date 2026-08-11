@@ -58,19 +58,51 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   setLocalStream: (stream) => set({ localStream: stream }),
 
   toggleMic: async () => {
-    const { localStream, isMicOn } = get();
+    const { localStream, isMicOn, isCameraOn } = get();
     const nextMicState = !isMicOn;
-    if (localStream) {
-      localStream.getAudioTracks().forEach((track) => {
-        track.enabled = nextMicState;
-      });
+    const { peerService } = await import('../services/webrtc/peerService');
+    const { useRoomStore } = await import('./useRoomStore');
+    const currentUser = useRoomStore.getState().currentUser;
+
+    if (!nextMicState) {
+      // Turning microphone OFF: stop audio track to release microphone hardware completely
+      if (localStream) {
+        localStream.getAudioTracks().forEach((track) => {
+          track.stop();
+          localStream.removeTrack(track);
+        });
+      }
+      set({ isMicOn: false });
+    } else {
+      // Turning microphone ON: request fresh microphone audio stream
+      try {
+        const newMicStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isCameraOn });
+        const newAudioTrack = newMicStream.getAudioTracks()[0];
+
+        let updatedStream = localStream;
+        if (updatedStream) {
+          // Remove old audio tracks if any
+          updatedStream.getAudioTracks().forEach((t) => updatedStream!.removeTrack(t));
+          if (newAudioTrack) {
+            updatedStream.addTrack(newAudioTrack);
+          }
+        } else {
+          updatedStream = newMicStream;
+        }
+
+        const freshStream = new MediaStream(updatedStream.getTracks());
+        set({ localStream: freshStream, isMicOn: true });
+
+        // Update active WebRTC peer connections with the new audio track
+        peerService.updateLocalStreamTrack(freshStream);
+      } catch (err) {
+        console.error('Failed to turn microphone back on:', err);
+        set({ isMicOn: false });
+        return;
+      }
     }
-    set({ isMicOn: nextMicState });
 
     try {
-      const { peerService } = await import('../services/webrtc/peerService');
-      const { useRoomStore } = await import('./useRoomStore');
-      const currentUser = useRoomStore.getState().currentUser;
       if (currentUser) {
         peerService.broadcast('MEDIA_STATUS_CHANGE', {
           userId: currentUser.id,
@@ -183,8 +215,14 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
   addRemoteStream: (remote) => {
     const current = get().remoteStreams;
-    if (current.some((r) => r.peerId === remote.peerId)) return;
-    set({ remoteStreams: [...current, remote] });
+    const existingIndex = current.findIndex((r) => r.peerId === remote.peerId || (r.userId && r.userId === remote.userId));
+    if (existingIndex >= 0) {
+      const updated = [...current];
+      updated[existingIndex] = { ...updated[existingIndex], ...remote };
+      set({ remoteStreams: updated });
+    } else {
+      set({ remoteStreams: [...current, remote] });
+    }
   },
 
   removeRemoteStream: (peerId) => {

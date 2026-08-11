@@ -400,17 +400,25 @@ class PeerService {
 
     call.on('stream', (remoteStream) => {
       const peers = useRoomStore.getState().peers;
-      const peerInfo = peers.find((p) => call.peer.includes(p.id.slice(-6)) || p.id === call.peer);
+      const peerInfo = peers.find(
+        (p) => call.peer.includes(p.id.slice(-6)) || p.id === call.peer || (p.isHost && call.peer.includes('room-'))
+      );
 
-      useVideoStore.getState().addRemoteStream({
+      const videoStore = useVideoStore.getState();
+      videoStore.addRemoteStream({
         peerId: call.peer,
         userId: peerInfo?.id || call.peer,
-        userName: peerInfo?.displayName || 'Peer User',
+        userName: peerInfo?.displayName || (call.peer.includes('room-') ? 'Host' : 'Peer User'),
         avatarColor: peerInfo?.avatarColor || '#6366f1',
         stream: remoteStream,
         isMicOn: true,
         isCameraOn: true,
       });
+
+      // Automatically activate floating video container UI on incoming stream
+      if (!videoStore.isVideoCallActive) {
+        videoStore.setVideoCallActive(true);
+      }
     });
 
     call.on('close', () => {
