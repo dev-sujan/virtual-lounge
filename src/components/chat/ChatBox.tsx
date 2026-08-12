@@ -86,7 +86,7 @@ export const ChatBox: React.FC = () => {
   const [showImageModal, setShowImageModal] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
-  const [mediaFilter, setMediaFilter] = useState<'all' | 'image' | 'audio' | 'poll' | 'pinned'>('all');
+  const [mediaFilter, setMediaFilter] = useState<'all' | 'image' | 'audio' | 'poll' | 'pinned' | 'starred'>('all');
   const [isTypingLocal, setIsTypingLocal] = useState(false);
   const [selectedEmojiCat, setSelectedEmojiCat] = useState<string>('🎉 Party & Vibe');
 
