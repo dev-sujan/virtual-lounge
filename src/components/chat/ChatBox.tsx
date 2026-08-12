@@ -271,7 +271,8 @@ export const ChatBox: React.FC = () => {
       markMessagesRead(currentUser.id);
       peerService.broadcast('CHAT_READ_RECEIPT', { userId: currentUser.id });
     }
-  }, [messages.length, currentUser?.id]);
+  }, [messages.length, currentUser, markMessagesRead]);
+
 
   // Filter matching slash commands based on input
   const matchingSlashCommands = inputText.startsWith('/')

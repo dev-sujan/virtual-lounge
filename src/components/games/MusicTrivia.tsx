@@ -65,15 +65,33 @@ const TRIVIA_QUESTIONS: TriviaQuestion[] = [
   },
 ];
 
+import { useGameStore } from '../../stores/useGameStore';
+
+
 export const MusicTrivia: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   const { currentUser, peers } = useRoomStore();
-  const [currentQIndex, setCurrentQIndex] = useState(0);
+  const { trivia, updateTrivia, resetTrivia } = useGameStore();
+
+  const [currentQIndex, setCurrentQIndex] = useState(trivia.currentQIndex || 0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const [streaks, setStreaks] = useState<Record<string, number>>({});
   const [timer, setTimer] = useState(15);
   const [isAnswered, setIsAnswered] = useState(false);
-  const [gameFinished, setGameFinished] = useState(false);
+  const [gameFinished, setGameFinished] = useState(trivia.gameFinished || false);
+
+  const scores = trivia.scores || {};
+  const streaks = trivia.streaks || {};
+
+  useEffect(() => {
+    if (trivia.currentQIndex !== undefined && trivia.currentQIndex !== currentQIndex) {
+      setCurrentQIndex(trivia.currentQIndex);
+      setSelectedOption(null);
+      setIsAnswered(false);
+      setTimer(15);
+    }
+    if (trivia.gameFinished !== undefined) {
+      setGameFinished(trivia.gameFinished);
+    }
+  }, [trivia.currentQIndex, trivia.gameFinished]);
 
   const currentQ = TRIVIA_QUESTIONS[currentQIndex];
 
@@ -82,7 +100,11 @@ export const MusicTrivia: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     if (gameFinished || isAnswered) return;
 
     if (timer <= 0) {
-      handleTimeOut();
+      setIsAnswered(true);
+      if (currentUser) {
+        const updatedStreaks = { ...streaks, [currentUser.id]: 0 };
+        updateTrivia({ streaks: updatedStreaks });
+      }
       return;
     }
 
@@ -91,14 +113,7 @@ export const MusicTrivia: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timer, isAnswered, gameFinished]);
-
-  const handleTimeOut = () => {
-    setIsAnswered(true);
-    if (currentUser) {
-      setStreaks((prev) => ({ ...prev, [currentUser.id]: 0 }));
-    }
-  };
+  }, [timer, isAnswered, gameFinished, currentUser, streaks, updateTrivia]);
 
   const handleSelectOption = (idx: number) => {
     if (isAnswered || !currentUser) return;
@@ -117,23 +132,41 @@ export const MusicTrivia: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const updatedScores = { ...scores, [currentUser.id]: newScore };
     const updatedStreaks = { ...streaks, [currentUser.id]: newStreak };
 
-    setScores(updatedScores);
-    setStreaks(updatedStreaks);
+    const newState = {
+      scores: updatedScores,
+      streaks: updatedStreaks,
+      currentQIndex,
+      gameFinished,
+    };
 
+    updateTrivia(newState);
     peerService.broadcast('GAME_STATE_CHANGE', {
       gameType: 'trivia',
-      state: { scores: updatedScores, streaks: updatedStreaks, qIndex: currentQIndex },
+      state: newState,
     });
   };
 
   const handleNextQuestion = () => {
     if (currentQIndex + 1 < TRIVIA_QUESTIONS.length) {
-      setCurrentQIndex(currentQIndex + 1);
+      const nextIdx = currentQIndex + 1;
+      setCurrentQIndex(nextIdx);
       setSelectedOption(null);
       setIsAnswered(false);
       setTimer(15);
+      const newState = { currentQIndex: nextIdx, scores, streaks, gameFinished: false };
+      updateTrivia(newState);
+      peerService.broadcast('GAME_STATE_CHANGE', {
+        gameType: 'trivia',
+        state: newState,
+      });
     } else {
       setGameFinished(true);
+      const newState = { currentQIndex, scores, streaks, gameFinished: true };
+      updateTrivia(newState);
+      peerService.broadcast('GAME_STATE_CHANGE', {
+        gameType: 'trivia',
+        state: newState,
+      });
     }
   };
 
@@ -143,11 +176,13 @@ export const MusicTrivia: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     setIsAnswered(false);
     setTimer(15);
     setGameFinished(false);
-    if (currentUser) {
-      setScores({ [currentUser.id]: 0 });
-      setStreaks({ [currentUser.id]: 0 });
-    }
+    resetTrivia();
+    peerService.broadcast('GAME_STATE_CHANGE', {
+      gameType: 'trivia',
+      state: { currentQIndex: 0, scores: {}, streaks: {}, gameFinished: false },
+    });
   };
+
 
   // Participant list sorted by score
   const participants = [currentUser, ...(peers || [])].filter(Boolean);

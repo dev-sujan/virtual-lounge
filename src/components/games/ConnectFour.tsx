@@ -9,7 +9,9 @@ export const ConnectFour: React.FC = () => {
   const { connectFour, updateConnectFour, resetConnectFour } = useGameStore();
   const { currentUser, peers } = useRoomStore();
 
-  const opponent = peers[0];
+  const otherPeer = peers.find((p) => p.id !== currentUser?.id);
+  const isPlayer1 = currentUser?.isHost || (otherPeer && currentUser ? currentUser.id < otherPeer.id : true);
+  const color = isPlayer1 ? 'RED' : 'YELLOW';
   const isMyTurn = connectFour.turn === currentUser?.id || !connectFour.turn;
 
   const handleDrop = (colIndex: number) => {
@@ -26,7 +28,6 @@ export const ConnectFour: React.FC = () => {
 
     if (targetRow === -1) return; // Column full
 
-    const color = currentUser.isHost ? 'RED' : 'YELLOW';
     const newBoard = connectFour.board.map((row) => [...row]);
     newBoard[targetRow][colIndex] = color;
 
@@ -37,7 +38,8 @@ export const ConnectFour: React.FC = () => {
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.7 } });
     }
 
-    const nextTurn = opponent ? opponent.id : currentUser.id;
+    const nextTurn = otherPeer ? otherPeer.id : currentUser.id;
+
 
     const newState = {
       board: newBoard,

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useGameStore } from '../../stores/useGameStore';
+import { peerService } from '../../services/webrtc/peerService';
 import { TicTacToe } from './TicTacToe';
 import { RockPaperScissors } from './RockPaperScissors';
 import { ConnectFour } from './ConnectFour';
@@ -17,6 +18,13 @@ export const GameSelector: React.FC = () => {
     { id: 'connectfour', title: 'Connect Four', desc: '4-in-a-row drop battle', icon: Disc },
   ];
 
+  const handleSelectGame = (game: GameType) => {
+    setActiveGame(game);
+    peerService.broadcast('GAME_STATE_CHANGE', {
+      activeGame: game,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -30,7 +38,7 @@ export const GameSelector: React.FC = () => {
 
         {activeGame !== 'none' && (
           <button
-            onClick={() => setActiveGame('none')}
+            onClick={() => handleSelectGame('none')}
             className="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 transition"
           >
             ← Switch Game
@@ -45,7 +53,7 @@ export const GameSelector: React.FC = () => {
             return (
               <button
                 key={g.id}
-                onClick={() => setActiveGame(g.id)}
+                onClick={() => handleSelectGame(g.id)}
                 className="glass-card p-5 rounded-2xl border border-white/10 hover:border-indigo-500/50 hover:bg-indigo-950/20 text-left transition-all duration-300 group flex flex-col justify-between"
               >
                 <div className="w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform mb-4">
@@ -63,7 +71,7 @@ export const GameSelector: React.FC = () => {
         </div>
       ) : (
         <div className="animate-fadeIn">
-          {activeGame === 'trivia' && <MusicTrivia onBack={() => setActiveGame('none')} />}
+          {activeGame === 'trivia' && <MusicTrivia onBack={() => handleSelectGame('none')} />}
           {activeGame === 'tictactoe' && <TicTacToe />}
           {activeGame === 'rps' && <RockPaperScissors />}
           {activeGame === 'connectfour' && <ConnectFour />}
@@ -72,4 +80,3 @@ export const GameSelector: React.FC = () => {
     </div>
   );
 };
-

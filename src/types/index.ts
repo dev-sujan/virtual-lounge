@@ -124,6 +124,14 @@ export interface ConnectFourState {
   scores: Record<string, number>;
 }
 
+export interface TriviaState {
+  currentQIndex: number;
+  scores: Record<string, number>;
+  streaks: Record<string, number>;
+  gameFinished: boolean;
+}
+
+
 // P2P Event Messages over WebRTC DataChannel / BroadcastChannel
 export type SyncEventType =
   | 'JOIN_REQUEST'

@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import type { GameType, TicTacToeState, RPSState, ConnectFourState } from '../types';
+import type { GameType, TicTacToeState, RPSState, ConnectFourState, TriviaState } from '../types';
 
 interface GameStoreState {
   activeGame: GameType;
   ticTacToe: TicTacToeState;
   rps: RPSState;
   connectFour: ConnectFourState;
+  trivia: TriviaState;
 
   // Actions
   setActiveGame: (game: GameType) => void;
@@ -17,6 +18,9 @@ interface GameStoreState {
 
   updateConnectFour: (updates: Partial<ConnectFourState>) => void;
   resetConnectFour: (firstTurnUser?: string) => void;
+
+  updateTrivia: (updates: Partial<TriviaState>) => void;
+  resetTrivia: () => void;
 }
 
 const initialTTT: TicTacToeState = {
@@ -41,11 +45,19 @@ const initialConnectFour: ConnectFourState = {
   scores: {},
 };
 
+const initialTrivia: TriviaState = {
+  currentQIndex: 0,
+  scores: {},
+  streaks: {},
+  gameFinished: false,
+};
+
 export const useGameStore = create<GameStoreState>((set, get) => ({
   activeGame: 'none',
   ticTacToe: initialTTT,
   rps: initialRPS,
   connectFour: initialConnectFour,
+  trivia: initialTrivia,
 
   setActiveGame: (game) => set({ activeGame: game }),
 
@@ -89,4 +101,15 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       },
     });
   },
+
+  updateTrivia: (updates) => {
+    set({ trivia: { ...get().trivia, ...updates } });
+  },
+
+  resetTrivia: () => {
+    set({
+      trivia: initialTrivia,
+    });
+  },
 }));
+

@@ -20,13 +20,13 @@ export const TicTacToe: React.FC = () => {
   const { ticTacToe, updateTicTacToe, resetTicTacToe } = useGameStore();
   const { currentUser, peers } = useRoomStore();
 
-  const opponent = peers[0];
-  const isMyTurn = ticTacToe.turn === currentUser?.id || !ticTacToe.turn;
+  const otherPeer = peers.find((p) => p.id !== currentUser?.id);
+  const isPlayer1 = currentUser?.isHost || (otherPeer && currentUser ? currentUser.id < otherPeer.id : true);
+  const symbol = isPlayer1 ? 'X' : 'O';
 
   const handleCellClick = (index: number) => {
     if (!currentUser || ticTacToe.board[index] || ticTacToe.winner || !isMyTurn) return;
 
-    const symbol = currentUser.isHost ? 'X' : 'O';
     const newBoard = [...ticTacToe.board];
     newBoard[index] = symbol;
 
@@ -47,7 +47,8 @@ export const TicTacToe: React.FC = () => {
       winner = 'draw';
     }
 
-    const nextTurn = opponent ? opponent.id : currentUser.id;
+    const nextTurn = otherPeer ? otherPeer.id : currentUser.id;
+
 
     const newScores = { ...ticTacToe.scores };
     if (winner && winner !== 'draw') {
