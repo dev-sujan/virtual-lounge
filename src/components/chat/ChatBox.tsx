@@ -1303,33 +1303,35 @@ export const ChatBox: React.FC = () => {
             );
           })
         )}
-        {/* Scroll-To-Bottom Floating Button */}
-        {showScrollBottom && (
-          <button
-            onClick={() => {
-              triggerHaptic(20);
-              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="absolute bottom-16 right-4 z-30 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-full shadow-2xl flex items-center space-x-1 border border-white/20 animate-bounce transition transform active:scale-95"
-            title="Scroll to Latest Messages"
-          >
-            <ChevronDown className="w-4 h-4" />
-            <span className="text-[10px] font-bold">Latest Messages</span>
-          </button>
-        )}
-
-        <div ref={messagesEndRef} />
+        <div ref={messagesEndRef} className="h-2" />
       </div>
 
       {/* Typing Indicator */}
       {activeTypingNames.length > 0 && (
-        <div className="px-4 py-1 text-xs text-indigo-300 italic bg-slate-900/40 flex items-center space-x-1.5 shrink-0">
+        <div className="px-4 py-1 text-xs text-indigo-300 italic bg-slate-900/40 flex items-center space-x-1.5 shrink-0 z-10">
           <div className="flex space-x-1">
             <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" />
           </div>
           <span>
             {activeTypingNames.join(', ')} {activeTypingNames.length > 1 ? 'are' : 'is'} typing...
           </span>
+        </div>
+      )}
+
+      {/* Centered Scroll-To-Bottom Floating Button (Outside Scroll Container) */}
+      {showScrollBottom && (
+        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-30 animate-fadeIn pointer-events-auto">
+          <button
+            onClick={() => {
+              triggerHaptic(20);
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="bg-indigo-600/95 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-full shadow-2xl flex items-center space-x-1.5 border border-white/25 transition transform active:scale-95 hover:scale-105 backdrop-blur-md"
+            title="Scroll to Latest Messages"
+          >
+            <ChevronDown className="w-3.5 h-3.5 animate-bounce" />
+            <span className="text-[11px] font-bold tracking-wide">Latest Messages</span>
+          </button>
         </div>
       )}
 
