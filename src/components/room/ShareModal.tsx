@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Copy, Check, Eye, EyeOff, Share2, Link, Zap } from 'lucide-react';
+import { X, Copy, Check, Eye, EyeOff, Share2, Link, Zap, QrCode } from 'lucide-react';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
 
 interface ShareModalProps {
@@ -13,6 +13,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password
   const [showPassword, setShowPassword] = useState(false);
   const [copiedDirectLink, setCopiedDirectLink] = useState(false);
   const [copiedFullMsg, setCopiedFullMsg] = useState(false);
+  const [activeTab, setActiveTab] = useState<'link' | 'qr'>('link');
 
   if (!isOpen) return null;
 
@@ -51,37 +52,77 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password
           </div>
         </div>
 
-        {/* 1-Click Direct Link Banner */}
-        <div className="bg-gradient-to-r from-indigo-950/40 to-purple-950/40 p-4 rounded-xl border border-indigo-500/30 mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-indigo-300 flex items-center space-x-1.5">
-              <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-              <span>1-Click Direct Access Link</span>
-            </span>
-            <span className="text-[10px] text-emerald-400 font-mono font-semibold bg-emerald-500/20 px-2 py-0.2 rounded-full border border-emerald-500/30">
-              No password needed
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-300 mb-3">
-            Friends opening this link will enter the lounge directly without typing any password.
-          </p>
+        {/* Tab Switching */}
+        <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mb-4 text-xs font-semibold">
           <button
-            onClick={handleCopyDirectLink}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 transition shadow"
+            onClick={() => setActiveTab('link')}
+            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center space-x-1.5 transition ${
+              activeTab === 'link' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
           >
-            {copiedDirectLink ? (
-              <>
-                <Check className="w-4 h-4 text-emerald-400" />
-                <span>Copied 1-Click Direct Link!</span>
-              </>
-            ) : (
-              <>
-                <Link className="w-4 h-4" />
-                <span>Copy 1-Click Direct Link</span>
-              </>
-            )}
+            <Link className="w-3.5 h-3.5" />
+            <span>Invite Link & Credentials</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('qr')}
+            className={`flex-1 py-1.5 rounded-lg flex items-center justify-center space-x-1.5 transition ${
+              activeTab === 'qr' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            <span>Scan QR Code</span>
           </button>
         </div>
+
+        {activeTab === 'qr' ? (
+          <div className="bg-slate-900/90 p-5 rounded-2xl border border-white/15 flex flex-col items-center justify-center text-center space-y-3 mb-6 animate-fadeIn">
+            <div className="p-3 bg-white rounded-2xl shadow-2xl border border-slate-200">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(directLink)}`}
+                alt="Room Invite QR Code"
+                className="w-48 h-48 object-contain rounded-lg"
+              />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-indigo-300 block">Scan to Join Lounge</span>
+              <p className="text-[11px] text-slate-400 max-w-xs mt-0.5">
+                Scan this QR code with any smartphone camera to open the lounge directly!
+              </p>
+            </div>
+          </div>
+        ) : (
+          /* 1-Click Direct Link Banner */
+          <div className="bg-gradient-to-r from-indigo-950/40 to-purple-950/40 p-4 rounded-xl border border-indigo-500/30 mb-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-indigo-300 flex items-center space-x-1.5">
+                <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <span>1-Click Direct Access Link</span>
+              </span>
+              <span className="text-[10px] text-emerald-400 font-mono font-semibold bg-emerald-500/20 px-2 py-0.2 rounded-full border border-emerald-500/30">
+                No password needed
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mb-3">
+              Friends opening this link will enter the lounge directly without typing any password.
+            </p>
+            <button
+              onClick={handleCopyDirectLink}
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 transition shadow"
+            >
+              {copiedDirectLink ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span>Copied 1-Click Direct Link!</span>
+                </>
+              ) : (
+                <>
+                  <Link className="w-4 h-4" />
+                  <span>Copy 1-Click Direct Link</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         <div className="space-y-3 mb-6">
           <div className="bg-slate-900/80 p-3.5 rounded-xl border border-white/10 flex justify-between items-center">
