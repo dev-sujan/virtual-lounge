@@ -28,6 +28,9 @@ import {
   Flame,
   Check,
   CheckCheck,
+  Copy,
+  ChevronDown,
+  Heart,
 } from 'lucide-react';
 
 
@@ -108,11 +111,104 @@ export const ChatBox: React.FC = () => {
 
   // Audio playback state
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [audioPlaybackRate, setAudioPlaybackRate] = useState<1 | 1.5 | 2>(1);
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Mobile Touch Gestures & Scroll State
+  const [swipeTranslateMap, setSwipeTranslateMap] = useState<Record<string, number>>({});
+  const [doubleTapHeartMap, setDoubleTapHeartMap] = useState<Record<string, boolean>>({});
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  const feedRef = useRef<HTMLDivElement>(null);
+  const touchStartRef = useRef<{ id: string; x: number; y: number; time: number } | null>(null);
+  const longPressTimerRef = useRef<any>(null);
+  const lastTapRef = useRef<{ id: string; time: number } | null>(null);
 
   const typingTimeoutRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const triggerHaptic = (pattern: number | number[] = 25) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(pattern);
+      }
+    } catch (e) {}
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, msg: ChatMessage) => {
+    if (msg.isSystem || msg.isUnsent) return;
+    const touch = e.touches[0];
+    const now = Date.now();
+
+    // Double Tap gesture detection (<300ms on same message)
+    if (lastTapRef.current && lastTapRef.current.id === msg.id && now - lastTapRef.current.time < 300) {
+      clearTimeout(longPressTimerRef.current);
+      triggerHaptic([25, 35]);
+      handleAddReaction(msg.id, '❤️');
+
+      setDoubleTapHeartMap((prev) => ({ ...prev, [msg.id]: true }));
+      setTimeout(() => {
+        setDoubleTapHeartMap((prev) => ({ ...prev, [msg.id]: false }));
+      }, 850);
+
+      lastTapRef.current = null;
+      return;
+    }
+
+    lastTapRef.current = { id: msg.id, time: now };
+    touchStartRef.current = { id: msg.id, x: touch.clientX, y: touch.clientY, time: now };
+
+    // Press and Hold (Long Press 450ms)
+    longPressTimerRef.current = setTimeout(() => {
+      triggerHaptic(45);
+      setMobileActiveMsgId(msg.id);
+      setShowEmojiPicker(msg.id);
+    }, 450);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent, msg: ChatMessage) => {
+    if (!touchStartRef.current || touchStartRef.current.id !== msg.id) return;
+
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStartRef.current.x;
+    const deltaY = touch.clientY - touchStartRef.current.y;
+
+    if (Math.abs(deltaY) > 8 || Math.abs(deltaX) > 8) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    // Swipe Right to Reply gesture
+    if (deltaX > 0 && Math.abs(deltaX) > Math.abs(deltaY) * 1.1) {
+      const translation = Math.min(deltaX * 0.5, 75);
+      setSwipeTranslateMap((prev) => ({ ...prev, [msg.id]: translation }));
+    }
+  };
+
+  const handleTouchEnd = (msg: ChatMessage) => {
+    clearTimeout(longPressTimerRef.current);
+
+    const translation = swipeTranslateMap[msg.id] || 0;
+    if (translation >= 35) {
+      triggerHaptic(30);
+      setReplyingTo(msg);
+    }
+
+    setSwipeTranslateMap((prev) => ({ ...prev, [msg.id]: 0 }));
+    touchStartRef.current = null;
+  };
+
+  const handleCopyMessageText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    triggerHaptic(20);
+  };
+
+  const handleFeedScroll = () => {
+    if (!feedRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = feedRef.current;
+    const isScrolledUp = scrollHeight - scrollTop - clientHeight > 140;
+    setShowScrollBottom(isScrolledUp);
+  };
 
   const {
     messages,
@@ -498,11 +594,20 @@ export const ChatBox: React.FC = () => {
     }
 
     const audio = new Audio(audioUrl);
+    audio.playbackRate = audioPlaybackRate;
     activeAudioRef.current = audio;
     setPlayingAudioId(msgId);
 
     audio.play().catch(() => setPlayingAudioId(null));
     audio.onended = () => setPlayingAudioId(null);
+  };
+
+  const cycleAudioPlaybackRate = () => {
+    const next = audioPlaybackRate === 1 ? 1.5 : audioPlaybackRate === 1.5 ? 2 : 1;
+    setAudioPlaybackRate(next);
+    if (activeAudioRef.current) {
+      activeAudioRef.current.playbackRate = next;
+    }
   };
 
   const handleAddReaction = (msgId: string, emoji: string) => {
@@ -748,7 +853,11 @@ export const ChatBox: React.FC = () => {
       )}
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div
+        ref={feedRef}
+        onScroll={handleFeedScroll}
+        className="flex-1 overflow-y-auto p-4 space-y-4 relative"
+      >
         {filteredMessages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-6">
             <Sparkles className="w-8 h-8 text-indigo-400 mb-2 animate-pulse" />
@@ -790,7 +899,17 @@ export const ChatBox: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex items-start space-x-2 max-w-[88%] sm:max-w-[78%]">
+                <div className="flex items-start space-x-2 max-w-[88%] sm:max-w-[78%] relative">
+                  {/* Swipe Right to Reply Indicator */}
+                  {swipeTranslateMap[msg.id] !== undefined && swipeTranslateMap[msg.id] > 0 && (
+                    <div
+                      className="absolute left-[-28px] top-1/2 -translate-y-1/2 text-indigo-400 flex items-center justify-center transition-opacity"
+                      style={{ opacity: Math.min((swipeTranslateMap[msg.id] || 0) / 35, 1) }}
+                    >
+                      <Reply className="w-5 h-5" />
+                    </div>
+                  )}
+
                   {!isMe && (
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow mt-0.5"
@@ -809,7 +928,11 @@ export const ChatBox: React.FC = () => {
 
                     <div
                       onClick={() => setMobileActiveMsgId(isMobileSelected ? null : msg.id)}
-                      className={`p-3 rounded-2xl text-sm relative shadow-md transition-all ${
+                      onTouchStart={(e) => handleTouchStart(e, msg)}
+                      onTouchMove={(e) => handleTouchMove(e, msg)}
+                      onTouchEnd={() => handleTouchEnd(msg)}
+                      style={{ transform: `translateX(${swipeTranslateMap[msg.id] || 0}px)` }}
+                      className={`p-3 rounded-2xl text-sm relative shadow-md transition-transform duration-75 select-none touch-pan-y ${
                         msg.isUnsent
                           ? 'bg-slate-900/80 text-slate-400 italic border border-white/10'
                           : msg.isVanish
@@ -819,6 +942,13 @@ export const ChatBox: React.FC = () => {
                           : 'bg-slate-800/90 text-slate-100 border border-white/10 rounded-tl-none'
                       } ${msg.isPinned ? 'ring-2 ring-indigo-400/50 shadow-indigo-500/20' : ''}`}
                     >
+                      {/* Double Tap Floating Heart Animation Burst */}
+                      {doubleTapHeartMap[msg.id] && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30 animate-bounce">
+                          <Heart className="w-10 h-10 text-rose-500 fill-rose-500 drop-shadow-xl" />
+                        </div>
+                      )}
+
                       {/* Pinned Badge */}
                       {msg.isPinned && (
                         <div className="mb-1.5 flex items-center space-x-1 text-[10px] text-indigo-300 font-bold uppercase tracking-wider">
@@ -851,23 +981,46 @@ export const ChatBox: React.FC = () => {
 
                       {/* Voice Note Attachment */}
                       {msg.audioUrl && !msg.isUnsent && (
-                        <div className="flex items-center space-x-3 bg-black/30 p-2 rounded-xl border border-white/10 mb-1">
-                          <button
-                            onClick={() => togglePlayAudio(msg.id, msg.audioUrl)}
-                            className="w-8 h-8 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white flex items-center justify-center shadow transition shrink-0"
-                          >
-                            {playingAudioId === msg.id ? (
-                              <Pause className="w-4 h-4 fill-current" />
-                            ) : (
-                              <Play className="w-4 h-4 fill-current ml-0.5" />
-                            )}
-                          </button>
-                          <div>
-                            <span className="text-xs font-bold block text-white">Voice Note</span>
-                            <span className="text-[10px] text-slate-300 font-mono">
+                        <div className="flex items-center justify-between space-x-3 bg-black/30 p-2.5 rounded-xl border border-white/10 mb-1 min-w-[190px]">
+                          <div className="flex items-center space-x-2.5 overflow-hidden">
+                            <button
+                              onClick={() => togglePlayAudio(msg.id, msg.audioUrl)}
+                              className="w-8 h-8 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white flex items-center justify-center shadow transition shrink-0"
+                            >
+                              {playingAudioId === msg.id ? (
+                                <Pause className="w-4 h-4 fill-current" />
+                              ) : (
+                                <Play className="w-4 h-4 fill-current ml-0.5" />
+                              )}
+                            </button>
+
+                            {/* Animated Waveform Visualizer */}
+                            <div className="flex items-center space-x-1 h-5 shrink-0">
+                              {[0.4, 0.8, 0.5, 1, 0.6, 0.9, 0.4].map((height, i) => (
+                                <div
+                                  key={i}
+                                  className={`w-1 rounded-full transition-all duration-200 ${
+                                    playingAudioId === msg.id ? 'bg-indigo-400 animate-pulse' : 'bg-white/30'
+                                  }`}
+                                  style={{ height: playingAudioId === msg.id ? `${height * 100}%` : '40%' }}
+                                />
+                              ))}
+                            </div>
+
+                            <span className="text-[10px] text-slate-300 font-mono shrink-0">
                               0:0{msg.audioDuration || 3}
                             </span>
                           </div>
+
+                          {playingAudioId === msg.id && (
+                            <button
+                              onClick={cycleAudioPlaybackRate}
+                              className="text-[10px] font-mono font-bold bg-white/15 px-2 py-0.5 rounded text-indigo-200 shrink-0 hover:bg-white/25 transition"
+                              title="Voice Playback Speed"
+                            >
+                              {audioPlaybackRate}x
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -982,6 +1135,13 @@ export const ChatBox: React.FC = () => {
                     >
                       <Reply className="w-3.5 h-3.5" />
                     </button>
+                    <button
+                      onClick={() => handleCopyMessageText(msg.text)}
+                      className="p-1 text-slate-400 hover:text-indigo-300 rounded-full transition"
+                      title="Copy Text"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
                     {isMe && (
                       <button
                         onClick={() => handleStartEdit(msg)}
@@ -1055,6 +1215,21 @@ export const ChatBox: React.FC = () => {
             );
           })
         )}
+        {/* Scroll-To-Bottom Floating Button */}
+        {showScrollBottom && (
+          <button
+            onClick={() => {
+              triggerHaptic(20);
+              messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="absolute bottom-16 right-4 z-30 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-full shadow-2xl flex items-center space-x-1 border border-white/20 animate-bounce transition transform active:scale-95"
+            title="Scroll to Latest Messages"
+          >
+            <ChevronDown className="w-4 h-4" />
+            <span className="text-[10px] font-bold">Latest Messages</span>
+          </button>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
@@ -1297,10 +1472,17 @@ export const ChatBox: React.FC = () => {
       {isRecording ? (
         <div className="p-3 bg-rose-950/80 border-t border-rose-500/40 flex items-center justify-between animate-pulse shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
-            <span className="text-xs font-bold text-rose-200">
-              Recording Voice Note ({recordingSeconds}s)...
+            <div className="w-3 h-3 rounded-full bg-rose-500 animate-ping shrink-0" />
+            <span className="text-xs font-bold text-rose-200 shrink-0">
+              Recording ({recordingSeconds}s)
             </span>
+
+            {/* Recording Audio Waveform Visualizer */}
+            <div className="hidden sm:flex items-center space-x-1 h-4">
+              {[0.6, 1, 0.4, 0.8, 0.5, 0.9].map((h, i) => (
+                <div key={i} className="w-1 bg-rose-400 rounded-full animate-bounce" style={{ height: `${h * 100}%` }} />
+              ))}
+            </div>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -1321,7 +1503,23 @@ export const ChatBox: React.FC = () => {
         </div>
       ) : (
         /* Chat Input Form */
-        <form onSubmit={handleSendMessage} className="p-3 bg-slate-900/80 border-t border-white/10 flex items-center space-x-2 shrink-0">
+        <div className="shrink-0">
+          {/* Mobile Quick Tap Emoji Ribbon Bar */}
+          <div className="px-3 py-1 bg-slate-950/60 border-t border-white/5 flex items-center space-x-2 overflow-x-auto no-scrollbar text-sm">
+            <span className="text-[10px] font-bold uppercase text-slate-500 shrink-0 font-mono">Quick:</span>
+            {['🔥', '💃', '🎵', '😂', '❤️', '👍', '👏', '🥳', '🍸', '🎧', '🙌', '💯'].map((e) => (
+              <button
+                key={e}
+                type="button"
+                onClick={() => setInputText((prev) => prev + e)}
+                className="hover:scale-125 transform transition px-1 py-0.5 shrink-0"
+              >
+                {e}
+              </button>
+            ))}
+          </div>
+
+          <form onSubmit={handleSendMessage} className="p-3 bg-slate-900/80 border-t border-white/10 flex items-center space-x-2">
           <button
             type="button"
             onClick={() => setShowAttachMenu(!showAttachMenu)}
