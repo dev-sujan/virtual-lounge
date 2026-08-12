@@ -125,9 +125,22 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
         },
         onStateChange: (event: any) => {
           if (event.data === 0) {
-            skipTrack('next');
+            const state = useRoomStore.getState();
+            // Only host or solo user auto-advances on song end to prevent duplicate skips across peers
+            if (state.isHost || state.peers.length === 0) {
+              skipTrack('next');
+              const { currentTrack, queue } = useMusicStore.getState();
+              peerService.broadcast('QUEUE_CHANGE', {
+                queue,
+                currentTrack,
+                action: 'finished playing',
+                item: currentTrack,
+                user: state.currentUser?.displayName || 'System',
+              });
+            }
           }
         },
+
       },
     });
   };
@@ -266,6 +279,15 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
     peerService.broadcast('SKIP_VOTE_CHANGE', { votes });
 
     if (skipped) {
+      const musicState = useMusicStore.getState();
+      peerService.broadcast('QUEUE_CHANGE', {
+        queue: musicState.queue,
+        currentTrack: musicState.currentTrack,
+        action: 'vote-skipped',
+        item: musicState.currentTrack,
+        user: currentUser.displayName,
+      });
+
       addToast({
         category: 'info',
         title: 'Track Skipped',
@@ -273,6 +295,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
       });
     }
   };
+
 
   const triggerFloatingEmoji = (emoji: string) => {
     const newEmoji: FloatingEmoji = {
