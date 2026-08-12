@@ -31,6 +31,9 @@ import {
   Copy,
   ChevronDown,
   Heart,
+  Star,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 
@@ -112,6 +115,8 @@ export const ChatBox: React.FC = () => {
   // Audio playback state
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
   const [audioPlaybackRate, setAudioPlaybackRate] = useState<1 | 1.5 | 2>(1);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [starredMsgIds, setStarredMsgIds] = useState<Record<string, boolean>>({});
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Mobile Touch Gestures & Scroll State
@@ -201,6 +206,32 @@ export const ChatBox: React.FC = () => {
   const handleCopyMessageText = (text: string) => {
     navigator.clipboard.writeText(text);
     triggerHaptic(20);
+  };
+
+  const toggleStarMessage = (msgId: string) => {
+    triggerHaptic(20);
+    setStarredMsgIds((prev) => ({ ...prev, [msgId]: !prev[msgId] }));
+  };
+
+  const speakMessageText = (msgId: string, text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    if (speakingMsgId === msgId) {
+      window.speechSynthesis.cancel();
+      setSpeakingMsgId(null);
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+
+    utterance.onend = () => setSpeakingMsgId(null);
+    utterance.onerror = () => setSpeakingMsgId(null);
+
+    setSpeakingMsgId(msgId);
+    window.speechSynthesis.speak(utterance);
   };
 
   const handleFeedScroll = () => {
@@ -689,6 +720,7 @@ export const ChatBox: React.FC = () => {
     else if (mediaFilter === 'audio') filteredMessages = filteredMessages.filter((m) => m.audioUrl);
     else if (mediaFilter === 'poll') filteredMessages = filteredMessages.filter((m) => m.poll);
     else if (mediaFilter === 'pinned') filteredMessages = filteredMessages.filter((m) => m.isPinned);
+    else if (mediaFilter === 'starred') filteredMessages = filteredMessages.filter((m) => starredMsgIds[m.id]);
   }
 
   return (
@@ -797,6 +829,15 @@ export const ChatBox: React.FC = () => {
         >
           <Pin className="w-3 h-3" />
           <span>Pinned ({pinnedMessages.length})</span>
+        </button>
+        <button
+          onClick={() => setMediaFilter('starred')}
+          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
+            mediaFilter === 'starred' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          }`}
+        >
+          <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+          <span>Saved ({Object.values(starredMsgIds).filter(Boolean).length})</span>
         </button>
       </div>
 
@@ -1141,6 +1182,24 @@ export const ChatBox: React.FC = () => {
                       title="Copy Text"
                     >
                       <Copy className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => speakMessageText(msg.id, msg.text)}
+                      className={`p-1 rounded-full transition ${
+                        speakingMsgId === msg.id ? 'text-amber-400 animate-pulse' : 'text-slate-400 hover:text-amber-300'
+                      }`}
+                      title={speakingMsgId === msg.id ? 'Stop Reading Aloud' : 'Read Aloud (Text-to-Speech)'}
+                    >
+                      {speakingMsgId === msg.id ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      onClick={() => toggleStarMessage(msg.id)}
+                      className={`p-1 rounded-full transition ${
+                        starredMsgIds[msg.id] ? 'text-amber-400' : 'text-slate-400 hover:text-amber-300'
+                      }`}
+                      title={starredMsgIds[msg.id] ? 'Unstar Message' : 'Star/Bookmark Message'}
+                    >
+                      <Star className={`w-3.5 h-3.5 ${starredMsgIds[msg.id] ? 'fill-amber-400' : ''}`} />
                     </button>
                     {isMe && (
                       <button
