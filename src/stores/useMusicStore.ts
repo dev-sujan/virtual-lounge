@@ -34,6 +34,7 @@ interface MusicState {
 
   setPlaybackState: (updates: Partial<PlaybackState>) => void;
   setRepeatMode: (mode: RepeatMode) => void;
+  setShuffleMode: (enabled: boolean) => void;
   toggleShuffle: () => void;
   skipTrack: (direction: 'next' | 'prev') => void;
 }
@@ -225,6 +226,8 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   },
 
   setRepeatMode: (mode) => set({ repeatMode: mode }),
+
+  setShuffleMode: (enabled) => set({ shuffleMode: enabled }),
 
   toggleShuffle: () => set({ shuffleMode: !get().shuffleMode }),
 

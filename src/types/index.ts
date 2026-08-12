@@ -144,7 +144,8 @@ export type SyncEventType =
   | 'MUSIC_REACTION'
   | 'SKIP_VOTE_CHANGE'
   | 'REQUEST_MEDIA_STREAM'
-  | 'PULL_PEER_STREAM';
+  | 'PULL_PEER_STREAM'
+  | 'ROOM_STATE_SYNC';
 
 
 

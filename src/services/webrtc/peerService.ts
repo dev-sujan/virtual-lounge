@@ -161,7 +161,8 @@ class PeerService {
 
     // Normalize encryption key secret per room & password
     const normalizedPassword = (password || '').trim();
-    const secretKey = `synclounge_${roomId.toLowerCase().trim()}_${normalizedPassword}`;
+    const activeRoomId = (roomId || 'default_lounge').toLowerCase().trim();
+    const secretKey = `synclounge_${activeRoomId}_${normalizedPassword}`;
     const encryptedPayload = await encryptPayload(payload, secretKey);
 
     const message: SyncMessagePayload = {
@@ -198,7 +199,8 @@ class PeerService {
 
     // Decrypt payload using AES-256-GCM E2EE secret key
     const normalizedPassword = (password || '').trim();
-    const secretKey = `synclounge_${roomId.toLowerCase().trim()}_${normalizedPassword}`;
+    const activeRoomId = (roomId || 'default_lounge').toLowerCase().trim();
+    const secretKey = `synclounge_${activeRoomId}_${normalizedPassword}`;
     const payload = await decryptPayload(msg.payload, secretKey);
 
     switch (msg.type) {
