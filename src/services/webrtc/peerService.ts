@@ -463,7 +463,7 @@ class PeerService {
               // so guest-to-guest messages work without host relay
               const { roomId: currentRoomId } = useRoomStore.getState();
               if (currentRoomId) {
-                filteredPeers.forEach((existingPeer) => {
+                filteredPeers.forEach((existingPeer: User) => {
                   if (!existingPeer.isHost) {
                     const guestPeerId = `synclounge-${currentRoomId.toLowerCase()}-${existingPeer.id.slice(-6)}`;
                     // Connect to existing guest peer (setupDataConnection won't re-send JOIN_REQUEST since we're not host)
