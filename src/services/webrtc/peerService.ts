@@ -51,6 +51,10 @@ class PeerService {
               { urls: 'stun:stun.l.google.com:19302' },
               { urls: 'stun:stun1.l.google.com:19302' },
               { urls: 'stun:stun2.l.google.com:19302' },
+              { urls: 'stun:stun3.l.google.com:19302' },
+              { urls: 'stun:stun4.l.google.com:19302' },
+              { urls: 'stun:stun.services.mozilla.com' },
+              { urls: 'stun:global.stun.twilio.com:3478' },
             ],
           },
         });
@@ -116,6 +120,19 @@ class PeerService {
   private setupDataConnection(conn: DataConnection) {
     this.connections.set(conn.peer, conn);
 
+    conn.on('open', () => {
+      console.log('[P2P] DataChannel opened with peer:', conn.peer);
+      const { currentUser, isHost, password } = useRoomStore.getState();
+      if (!isHost && currentUser) {
+        // Send JOIN_REQUEST over DataChannel as soon as connection is open
+        const normalizedPassword = (password || '').trim();
+        this.broadcast('JOIN_REQUEST', {
+          password: normalizedPassword,
+          user: currentUser,
+        });
+      }
+    });
+
     conn.on('data', async (data: any) => {
       await this.handleIncomingMessage(data as SyncMessagePayload);
     });
@@ -142,8 +159,9 @@ class PeerService {
     const { currentUser, roomId, password } = useRoomStore.getState();
     if (!currentUser) return;
 
-    // Encrypt payload with AES-256-GCM E2EE secret
-    const secretKey = `${roomId}_${password || 'default_secret'}`;
+    // Normalize encryption key secret per room & password
+    const normalizedPassword = (password || '').trim();
+    const secretKey = `synclounge_${roomId.toLowerCase().trim()}_${normalizedPassword}`;
     const encryptedPayload = await encryptPayload(payload, secretKey);
 
     const message: SyncMessagePayload = {
@@ -179,7 +197,8 @@ class PeerService {
     const toastStore = useToastStore.getState();
 
     // Decrypt payload using AES-256-GCM E2EE secret key
-    const secretKey = `${roomId}_${password || 'default_secret'}`;
+    const normalizedPassword = (password || '').trim();
+    const secretKey = `synclounge_${roomId.toLowerCase().trim()}_${normalizedPassword}`;
     const payload = await decryptPayload(msg.payload, secretKey);
 
     switch (msg.type) {
@@ -227,6 +246,23 @@ class PeerService {
               peers: [...useRoomStore.getState().peers, currentUser],
             },
           });
+        }
+        break;
+      }
+
+      case 'ROOM_STATE_SYNC': {
+        if (!isHost) {
+          const { queue, currentTrack, playback, repeatMode, shuffleMode, chatMessages, peers } = payload;
+          if (queue) useMusicStore.getState().setQueue(queue);
+          if (currentTrack !== undefined) useMusicStore.getState().setCurrentTrack(currentTrack);
+          if (playback) useMusicStore.getState().setPlaybackState(playback);
+          if (repeatMode) useMusicStore.getState().setRepeatMode(repeatMode);
+          if (shuffleMode !== undefined) useMusicStore.getState().setShuffleMode(shuffleMode);
+          if (chatMessages) useChatStore.getState().setMessages(chatMessages);
+          if (peers && currentUser) {
+            const filteredPeers = peers.filter((p: User) => p.id !== currentUser.id);
+            useRoomStore.getState().setPeers(filteredPeers);
+          }
         }
         break;
       }

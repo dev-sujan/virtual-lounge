@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useRoomStore } from '../stores/useRoomStore';
 import { useChatStore } from '../stores/useChatStore';
+import { useMusicStore } from '../stores/useMusicStore';
 import { peerService } from '../services/webrtc/peerService';
 import type { User } from '../types';
 
@@ -58,12 +59,28 @@ export function useWebRTC() {
 
     initP2P();
 
-    // Heartbeat presence interval
+    // Heartbeat presence interval & Host State Sync
     const heartbeatTimer = setInterval(() => {
       if (currentUser && peerService) {
         peerService.broadcast('PEER_PRESENCE_UPDATE', { user: currentUser });
+
+        if (isHost) {
+          const musicState = useMusicStore.getState();
+          const chatState = useChatStore.getState();
+          const roomState = useRoomStore.getState();
+
+          peerService.broadcast('ROOM_STATE_SYNC', {
+            queue: musicState.queue,
+            currentTrack: musicState.currentTrack,
+            playback: musicState.playback,
+            repeatMode: musicState.repeatMode,
+            shuffleMode: musicState.shuffleMode,
+            chatMessages: chatState.messages,
+            peers: roomState.peers,
+          });
+        }
       }
-    }, 10000);
+    }, 5000);
 
     return () => {
       isSubscribed = false;
