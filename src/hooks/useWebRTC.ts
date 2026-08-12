@@ -20,6 +20,9 @@ export function useWebRTC() {
       try {
         useRoomStore.getState().setConnectionStatus('connecting');
 
+        // peerService.init() opens the local Peer node.
+        // For guests, setupDataConnection() inside peerService automatically sends
+        // JOIN_REQUEST when the DataChannel opens — so we must NOT send it again here.
         await peerService.init(roomId, currentUser.id, isHost);
 
         if (!isSubscribed) return;
@@ -27,14 +30,13 @@ export function useWebRTC() {
         useRoomStore.getState().setConnectionStatus('connected');
 
         if (!isHost) {
-          // Send join request to room host
+          // connectToHost opens a DataChannel to the host peer.
+          // JOIN_REQUEST is sent automatically by setupDataConnection on 'open'.
+          // We do NOT send it here to avoid duplicate JOIN_REQUEST race condition.
           await peerService.connectToHost(roomId);
-          peerService.broadcast('JOIN_REQUEST', {
-            password,
-            user: currentUser,
-          });
+          // Give host time to process join and reply before heartbeat starts
         } else {
-          // Send initial system message as room host
+          // Host: post welcome system message on first session
           const messages = useChatStore.getState().messages;
           if (messages.length === 0) {
             useChatStore.getState().addMessage({
@@ -59,27 +61,28 @@ export function useWebRTC() {
 
     initP2P();
 
-    // Heartbeat presence interval & Host State Sync
+    // Heartbeat: presence ping + host full state sync every 5 seconds
     const heartbeatTimer = setInterval(() => {
-      if (currentUser && peerService) {
-        peerService.broadcast('PEER_PRESENCE_UPDATE', { user: currentUser });
-        peerService.broadcast('PING', { timestamp: Date.now() });
+      const state = useRoomStore.getState();
+      if (!state.currentUser) return;
 
-        if (isHost) {
-          const musicState = useMusicStore.getState();
-          const chatState = useChatStore.getState();
-          const roomState = useRoomStore.getState();
+      peerService.broadcast('PEER_PRESENCE_UPDATE', { user: state.currentUser });
+      peerService.broadcast('PING', { timestamp: Date.now() });
 
-          peerService.broadcast('ROOM_STATE_SYNC', {
-            queue: musicState.queue,
-            currentTrack: musicState.currentTrack,
-            playback: musicState.playback,
-            repeatMode: musicState.repeatMode,
-            shuffleMode: musicState.shuffleMode,
-            chatMessages: chatState.messages,
-            peers: roomState.peers,
-          });
-        }
+      if (state.isHost) {
+        const musicState = useMusicStore.getState();
+        const chatState = useChatStore.getState();
+        const roomState = useRoomStore.getState();
+
+        peerService.broadcast('ROOM_STATE_SYNC', {
+          queue: musicState.queue,
+          currentTrack: musicState.currentTrack,
+          playback: musicState.playback,
+          repeatMode: musicState.repeatMode,
+          shuffleMode: musicState.shuffleMode,
+          chatMessages: chatState.messages,
+          peers: roomState.peers,
+        });
       }
     }, 5000);
 

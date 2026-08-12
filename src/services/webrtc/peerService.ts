@@ -22,13 +22,17 @@ class PeerService {
   private autoReconnectTimer: any = null;
 
   public init(roomId: string, userId: string, isHost: boolean): Promise<string> {
-    if (this.isInitialized && this.peer) {
+    // Allow re-init if peer was destroyed or disconnected
+    if (this.isInitialized && this.peer && !this.peer.destroyed) {
       return Promise.resolve(this.peer.id);
     }
 
-    return new Promise((resolve) => {
+    // Clean up any stale state before re-initializing
+    if (this.peer) {
       this.destroy();
+    }
 
+    return new Promise((resolve) => {
       try {
         this.broadcastChannel = new BroadcastChannel(`synclounge_bcast_${roomId}`);
         this.broadcastChannel.onmessage = async (event) => {
@@ -121,6 +125,12 @@ class PeerService {
     if (!this.peer) return Promise.resolve(null);
 
     const targetId = hostPeerId || `synclounge-room-${roomId.toLowerCase()}`;
+
+    // Already connected to host — reuse
+    if (this.connections.has(targetId)) {
+      return Promise.resolve(this.connections.get(targetId) || null);
+    }
+
     return new Promise((resolve) => {
       try {
         const conn = this.peer!.connect(targetId, { reliable: true });
@@ -129,7 +139,8 @@ class PeerService {
           console.log('[P2P] Connected to host peer:', targetId);
           resolve(conn);
         });
-        setTimeout(() => resolve(conn), 3000);
+        // Fallback timeout if ICE negotiation takes longer than expected
+        setTimeout(() => resolve(this.connections.get(targetId) || conn), 5000);
       } catch (err) {
         console.error('[P2P] Error connecting to host:', err);
         resolve(null);
@@ -186,11 +197,26 @@ class PeerService {
       console.log('[P2P] DataChannel opened with peer:', conn.peer);
       const { currentUser, isHost, password } = useRoomStore.getState();
       if (!isHost && currentUser) {
-        // Send JOIN_REQUEST over DataChannel as soon as connection is open
+        // Send JOIN_REQUEST directly over this specific DataChannel connection
+        // (NOT via broadcast which might miss unopen connections)
         const normalizedPassword = (password || '').trim();
-        this.broadcast('JOIN_REQUEST', {
-          password: normalizedPassword,
-          user: currentUser,
+        const { roomId } = useRoomStore.getState();
+        const activeRoomId = (roomId || 'default_lounge').toLowerCase().trim();
+        const secretKey = `synclounge_${activeRoomId}_${normalizedPassword}`;
+
+        encryptPayload(
+          { password: normalizedPassword, user: currentUser },
+          secretKey
+        ).then((encryptedPayload) => {
+          const message: SyncMessagePayload = {
+            type: 'JOIN_REQUEST',
+            senderId: currentUser.id,
+            timestamp: Date.now(),
+            payload: encryptedPayload,
+          };
+          if (conn.open) {
+            conn.send(message);
+          }
         });
       }
     });
@@ -219,7 +245,32 @@ class PeerService {
     };
   }
 
+  // Send an encrypted message directly to a single peer DataConnection
+  public async sendToPeer(conn: DataConnection, type: SyncEventType, payload: any) {
+    const { currentUser, roomId, password } = useRoomStore.getState();
+    if (!currentUser || !conn.open) return;
+
+    const normalizedPassword = (password || '').trim();
+    const activeRoomId = (roomId || 'default_lounge').toLowerCase().trim();
+    const secretKey = `synclounge_${activeRoomId}_${normalizedPassword}`;
+    const encryptedPayload = await encryptPayload(payload, secretKey);
+
+    const message: SyncMessagePayload = {
+      type,
+      senderId: currentUser.id,
+      timestamp: Date.now(),
+      payload: encryptedPayload,
+    };
+
+    try {
+      conn.send(message);
+    } catch (e) {
+      console.warn('[P2P] sendToPeer failed:', e);
+    }
+  }
+
   public async broadcast(type: SyncEventType, payload: any) {
+
     const { currentUser, roomId, password } = useRoomStore.getState();
     if (!currentUser) return;
 
@@ -284,11 +335,16 @@ class PeerService {
       case 'JOIN_REQUEST': {
         const { password: reqPassword, user: reqUser } = payload;
         if (password && reqPassword !== password) {
-          this.broadcast('JOIN_RESPONSE', {
-            targetUserId: reqUser.id,
-            success: false,
-            error: 'Invalid password',
-          });
+          // Send rejection directly to the requesting peer's connection
+          const rejectingConn = this.connections.get(msg.senderId) ||
+            Array.from(this.connections.values()).find(c => c.open);
+          if (rejectingConn && rejectingConn.open) {
+            this.sendToPeer(rejectingConn, 'JOIN_RESPONSE', {
+              targetUserId: reqUser.id,
+              success: false,
+              error: 'Invalid password',
+            });
+          }
           return;
         }
 
@@ -311,7 +367,12 @@ class PeerService {
         });
 
         if (isHost) {
-          this.broadcast('JOIN_RESPONSE', {
+          // Find the DataConnection for this specific joining peer and send response directly
+          // Also broadcast so other already-connected peers learn about the new member
+          const joiningConn = this.connections.get(msg.senderId) ||
+            Array.from(this.connections.values()).find(c => c.open);
+
+          const joinResponsePayload = {
             targetUserId: reqUser.id,
             success: true,
             roomState: {
@@ -323,7 +384,14 @@ class PeerService {
               chatMessages: useChatStore.getState().messages,
               peers: [...useRoomStore.getState().peers, currentUser],
             },
-          });
+          };
+
+          if (joiningConn && joiningConn.open) {
+            this.sendToPeer(joiningConn, 'JOIN_RESPONSE', joinResponsePayload);
+          } else {
+            // Fallback: broadcast to all connected peers
+            this.broadcast('JOIN_RESPONSE', joinResponsePayload);
+          }
         }
         break;
       }
@@ -333,14 +401,8 @@ class PeerService {
         const currentRoomId = useRoomStore.getState().roomId;
         if (!isHost && currentRoomId && annRoomId && annRoomId.toUpperCase() === currentRoomId.toUpperCase()) {
           console.log('[P2P] Host re-announced room presence. Reconnecting...');
-          this.connectToHost(currentRoomId).then((conn) => {
-            if (conn && currentUser) {
-              this.broadcast('JOIN_REQUEST', {
-                password: (password || '').trim(),
-                user: currentUser,
-              });
-            }
-          });
+          // connectToHost will trigger setupDataConnection which sends JOIN_REQUEST on open
+          this.connectToHost(currentRoomId);
         }
         break;
       }
@@ -350,7 +412,25 @@ class PeerService {
           const { queue, currentTrack, playback, repeatMode, shuffleMode, chatMessages, peers } = payload;
           if (queue) useMusicStore.getState().setQueue(queue);
           if (currentTrack !== undefined) useMusicStore.getState().setCurrentTrack(currentTrack);
-          if (playback) useMusicStore.getState().setPlaybackState(playback);
+          if (playback) {
+            const localPlayback = useMusicStore.getState().playback;
+            // Only sync playback time if diverged by more than 3 seconds to prevent jitter
+            const elapsed = localPlayback.isPlaying
+              ? (Date.now() - localPlayback.lastUpdated) / 1000
+              : 0;
+            const localExpected = localPlayback.currentTime + elapsed;
+            const syncTime = playback.currentTime +
+              (playback.isPlaying ? (Date.now() - playback.lastUpdated) / 1000 : 0);
+            if (Math.abs(localExpected - syncTime) > 3) {
+              useMusicStore.getState().setPlaybackState(playback);
+            } else {
+              // Sync only play/pause state, not time
+              useMusicStore.getState().setPlaybackState({
+                isPlaying: playback.isPlaying,
+                updatedBy: playback.updatedBy,
+              });
+            }
+          }
           if (repeatMode) useMusicStore.getState().setRepeatMode(repeatMode);
           if (shuffleMode !== undefined) useMusicStore.getState().setShuffleMode(shuffleMode);
           if (chatMessages) useChatStore.getState().setMessages(chatMessages);
