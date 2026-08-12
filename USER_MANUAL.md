@@ -95,6 +95,7 @@ The application is built for maximum touch-screen fluidity:
 - **Notification Center & Toast Alerts**: Real-time popover logging room events, user joins/leaves, track updates, and unread mentions.
 - **Room QR Code Generator**: Built-in QR Code generator in `ShareModal` that creates instant scannable QR codes for smartphone camera 1-click lounge entry.
 - **WebRTC Latency & Signal Strength Ping**: Real-time PING/PONG data latency measurement (`24ms`) with color-coded signal quality indicators (📶 Green `<60ms` / Yellow / Red).
+- **Peer Navigation & Activity Tracking Bubbles**: Live peer tab activity tracking (`🎧 Listening`, `💬 In Live Chat`, `🎮 Gaming`) with transparent glassmorphic active tabs (`bg-white/15 backdrop-blur-md`) and message bubble activity badges.
 
 ---
 

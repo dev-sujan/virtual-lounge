@@ -38,6 +38,25 @@ export const Lounge: React.FC = () => {
     }
   };
 
+  const handleTabChange = (tab: LoungeTab) => {
+    setActiveTab(tab);
+    const activityMap: Record<LoungeTab, string> = {
+      music: '🎧 Listening to Music',
+      chat: '💬 In Live Chat',
+      games: '🎮 Playing Mini-Games',
+      members: '👥 Viewing Peers',
+    };
+    const activity = activityMap[tab];
+    if (currentUser) {
+      useRoomStore.getState().updateCurrentUser({ currentActivity: activity });
+      import('../services/webrtc/peerService').then(({ peerService }) => {
+        peerService.broadcast('PEER_PRESENCE_UPDATE', {
+          user: { ...currentUser, currentActivity: activity },
+        });
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#07080c] text-white flex flex-col justify-between pb-20 sm:pb-8 relative">
       {/* Real-time Synchronization Toast Notification Pop-ups */}
@@ -57,13 +76,13 @@ export const Lounge: React.FC = () => {
           <YouTubePlayer onOpenAddModal={() => setIsAddModalOpen(true)} />
         </div>
 
-        {/* Desktop Tab Selector */}
-        <div className="hidden sm:flex bg-slate-900/80 p-1.5 rounded-2xl border border-white/10 mb-6 shadow-lg">
+        {/* Desktop Tab Selector - Transparent P2P Glassmorphic Active Tab */}
+        <div className="hidden sm:flex bg-slate-900/60 backdrop-blur-xl p-1.5 rounded-2xl border border-white/10 mb-6 shadow-xl">
           <button
-            onClick={() => setActiveTab('music')}
+            onClick={() => handleTabChange('music')}
             className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition ${
               activeTab === 'music'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow'
+                ? 'bg-white/15 backdrop-blur-md border border-white/25 text-white shadow-lg'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -71,10 +90,10 @@ export const Lounge: React.FC = () => {
             <span>Shared Queue</span>
           </button>
           <button
-            onClick={() => setActiveTab('chat')}
+            onClick={() => handleTabChange('chat')}
             className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition ${
               activeTab === 'chat'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow'
+                ? 'bg-white/15 backdrop-blur-md border border-white/25 text-white shadow-lg'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -82,10 +101,10 @@ export const Lounge: React.FC = () => {
             <span>Private Chat</span>
           </button>
           <button
-            onClick={() => setActiveTab('games')}
+            onClick={() => handleTabChange('games')}
             className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition ${
               activeTab === 'games'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow'
+                ? 'bg-white/15 backdrop-blur-md border border-white/25 text-white shadow-lg'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -93,10 +112,10 @@ export const Lounge: React.FC = () => {
             <span>Multiplayer Games</span>
           </button>
           <button
-            onClick={() => setActiveTab('members')}
+            onClick={() => handleTabChange('members')}
             className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition ${
               activeTab === 'members'
-                ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow'
+                ? 'bg-white/15 backdrop-blur-md border border-white/25 text-white shadow-lg'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -200,7 +219,7 @@ export const Lounge: React.FC = () => {
       {/* Mobile Bottom Navigation Bar */}
       <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-xl border-t border-white/10 px-4 py-2 flex justify-around items-center">
         <button
-          onClick={() => setActiveTab('music')}
+          onClick={() => handleTabChange('music')}
           className={`flex flex-col items-center space-y-0.5 p-1 transition ${
             activeTab === 'music' ? 'text-indigo-400 font-bold' : 'text-slate-400'
           }`}
@@ -210,7 +229,7 @@ export const Lounge: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('chat')}
+          onClick={() => handleTabChange('chat')}
           className={`flex flex-col items-center space-y-0.5 p-1 transition ${
             activeTab === 'chat' ? 'text-indigo-400 font-bold' : 'text-slate-400'
           }`}
@@ -237,7 +256,7 @@ export const Lounge: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('games')}
+          onClick={() => handleTabChange('games')}
           className={`flex flex-col items-center space-y-0.5 p-1 transition ${
             activeTab === 'games' ? 'text-indigo-400 font-bold' : 'text-slate-400'
           }`}
@@ -247,7 +266,7 @@ export const Lounge: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveTab('members')}
+          onClick={() => handleTabChange('members')}
           className={`flex flex-col items-center space-y-0.5 p-1 transition ${
             activeTab === 'members' ? 'text-indigo-400 font-bold' : 'text-slate-400'
           }`}

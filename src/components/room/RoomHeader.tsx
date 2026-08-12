@@ -7,7 +7,7 @@ import { NotificationCenter } from '../common/NotificationCenter';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
-import { Lock, Share2, LogOut, Video, Copy, Check, Activity, ShieldCheck } from 'lucide-react';
+import { Lock, Share2, LogOut, Video, Copy, Check, ShieldCheck, Wifi } from 'lucide-react';
 
 export const RoomHeader: React.FC = () => {
   const { roomId, password, peers, peerPings } = useRoomStore();

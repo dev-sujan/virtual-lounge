@@ -974,9 +974,21 @@ export const ChatBox: React.FC = () => {
 
                   <div className="flex flex-col">
                     {!isMe && (
-                      <span className="text-[11px] font-semibold text-slate-300 ml-1 mb-0.5">
-                        {msg.senderName}
-                      </span>
+                      <div className="flex items-center space-x-1.5 ml-1 mb-0.5">
+                        <span className="text-[11px] font-semibold text-slate-300">
+                          {msg.senderName}
+                        </span>
+                        {(() => {
+                          const senderPeer = peers.find((p) => p.id === msg.senderId);
+                          const activity = senderPeer?.currentActivity;
+                          if (!activity) return null;
+                          return (
+                            <span className="text-[9px] text-indigo-300 bg-white/10 backdrop-blur-md px-1.5 py-0.2 rounded-full border border-white/15 font-mono font-medium">
+                              {activity}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     )}
 
                     <div
