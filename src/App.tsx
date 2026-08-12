@@ -1,5 +1,6 @@
 import { useRoomStore } from './stores/useRoomStore';
 import { useSessionRestorer } from './hooks/useSessionRestorer';
+import { OfflineBanner } from './components/common/OfflineBanner';
 import { Home } from './pages/Home';
 import { Lounge } from './pages/Lounge';
 
@@ -18,11 +19,12 @@ export function App() {
     );
   }
 
-  if (roomId && currentUser) {
-    return <Lounge />;
-  }
-
-  return <Home />;
+  return (
+    <>
+      <OfflineBanner />
+      {roomId && currentUser ? <Lounge /> : <Home />}
+    </>
+  );
 }
 
 export default App;

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { sendNativeNotification, setAppBadgeCount } from '../utils/pushUtils';
 
 export type ToastCategory = 'info' | 'success' | 'warning' | 'media' | 'music' | 'game';
 
@@ -42,10 +43,14 @@ export const useToastStore = create<ToastState>((set, get) => ({
       read: false,
     };
 
+    const newUnreadCount = get().unreadCount + 1;
+    sendNativeNotification(toast.title, { body: toast.message });
+    setAppBadgeCount(newUnreadCount);
+
     set((state) => ({
       toasts: [toast, ...state.toasts].slice(0, 5), // Max 5 active floating toasts
       history: [toast, ...state.history].slice(0, 50), // History log up to 50
-      unreadCount: state.unreadCount + 1,
+      unreadCount: newUnreadCount,
     }));
 
     // Auto-dismiss floating toast after 4 seconds
@@ -62,9 +67,15 @@ export const useToastStore = create<ToastState>((set, get) => ({
     }));
   },
 
-  markAllRead: () => set({ unreadCount: 0, history: get().history.map((h) => ({ ...h, read: true })) }),
+  markAllRead: () => {
+    setAppBadgeCount(0);
+    set({ unreadCount: 0, history: get().history.map((h) => ({ ...h, read: true })) });
+  },
 
-  clearHistory: () => set({ history: [], unreadCount: 0 }),
+  clearHistory: () => {
+    setAppBadgeCount(0);
+    set({ history: [], unreadCount: 0 });
+  },
 
   toggleSoundEnabled: () => set({ soundEnabled: !get().soundEnabled }),
 }));
