@@ -167,7 +167,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
       }
 
       const actualTime = playerRef.current.getCurrentTime?.() || 0;
-      if (Math.abs(actualTime - expectedTime) > 1.5) {
+      if (Math.abs(actualTime - expectedTime) > 3.0) {
         playerRef.current.seekTo(expectedTime, true);
       }
     } catch (err) {
@@ -182,11 +182,19 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
         const dur = playerRef.current.getDuration();
         setLocalTime(time || 0);
         if (dur && dur > 0) setDuration(dur);
+
+        // Keep musicStore playback state updated in real-time as song plays
+        if (playback.isPlaying && currentUser?.isHost) {
+          useMusicStore.getState().setPlaybackState({
+            currentTime: time || 0,
+            lastUpdated: Date.now(),
+          });
+        }
       }
-    }, 500);
+    }, 1000);
 
     return () => clearInterval(timer);
-  }, [isPlayerReady]);
+  }, [isPlayerReady, playback.isPlaying, currentUser?.isHost]);
 
   const handleTogglePlay = () => {
     if (!currentUser) return;

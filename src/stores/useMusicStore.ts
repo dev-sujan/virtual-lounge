@@ -220,7 +220,7 @@ export const useMusicStore = create<MusicState>((set, get) => ({
       playback: {
         ...get().playback,
         ...updates,
-        lastUpdated: Date.now(),
+        lastUpdated: updates.lastUpdated || Date.now(),
       },
     });
   },
