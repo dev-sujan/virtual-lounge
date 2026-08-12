@@ -8,7 +8,7 @@ import { PwaInstallPrompt } from '../common/PwaInstallPrompt';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
-import { Lock, Share2, LogOut, Video, Copy, Check, ShieldCheck, Wifi, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Lock, Share2, LogOut, Video, Copy, Check, ShieldCheck, Wifi } from 'lucide-react';
 
 export const RoomHeader: React.FC = () => {
   const { roomId, password, peers, peerPings } = useRoomStore();
@@ -16,7 +16,6 @@ export const RoomHeader: React.FC = () => {
 
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isLeaveOpen, setIsLeaveOpen] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
   const activeCount = (peers?.length || 0) + 1;
