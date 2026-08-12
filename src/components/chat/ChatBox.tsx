@@ -647,6 +647,7 @@ export const ChatBox: React.FC = () => {
     peerService.broadcast('CHAT_REACTION', { msgId, emoji, userId: currentUser.id });
     playReactionSound();
     setShowEmojiPicker(null);
+    setMobileActiveMsgId(null);
   };
 
   const handleDelete = (msgId: string) => {
@@ -899,6 +900,16 @@ export const ChatBox: React.FC = () => {
         onScroll={handleFeedScroll}
         className="flex-1 overflow-y-auto p-4 space-y-4 relative"
       >
+        {/* Transparent Backdrop to dismiss active popovers on tap outside */}
+        {(showEmojiPicker || mobileActiveMsgId) && (
+          <div
+            className="fixed inset-0 z-10 bg-black/10 backdrop-blur-xs cursor-pointer"
+            onClick={() => {
+              setShowEmojiPicker(null);
+              setMobileActiveMsgId(null);
+            }}
+          />
+        )}
         {filteredMessages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-6">
             <Sparkles className="w-8 h-8 text-indigo-400 mb-2 animate-pulse" />
@@ -912,9 +923,10 @@ export const ChatBox: React.FC = () => {
             </p>
           </div>
         ) : (
-          filteredMessages.map((msg) => {
+          filteredMessages.map((msg, msgIndex) => {
             const isMe = msg.senderId === currentUser?.id;
             const isMobileSelected = mobileActiveMsgId === msg.id;
+            const isTopMessage = msgIndex <= 1;
             const hasBeenReadByPeers = msg.readBy && msg.readBy.some((id) => id !== currentUser?.id);
 
             if (msg.isSystem) {
@@ -1151,13 +1163,17 @@ export const ChatBox: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Action Toolbar - Desktop Hover + Mobile Touch Fix */}
+                {/* Action Toolbar - Desktop Hover + Mobile Touch Fix + Top Message Safety */}
                 {!msg.isUnsent && (
                   <div
-                    className={`absolute transition-all flex items-center space-x-1 bg-slate-900/95 border border-white/15 rounded-full px-2 py-1 shadow-xl z-10 ${
-                      isMe
-                        ? '-top-9 left-1/2 -translate-x-1/2 sm:top-0 sm:translate-x-0 sm:right-[82%] sm:left-auto'
-                        : '-top-9 left-1/2 -translate-x-1/2 sm:top-0 sm:translate-x-0 sm:left-[82%] sm:right-auto'
+                    className={`absolute transition-all flex items-center space-x-1 bg-slate-900/95 border border-white/15 rounded-full px-2 py-1 shadow-xl z-20 ${
+                      isTopMessage
+                        ? isMe
+                          ? 'top-full mt-1.5 right-0 sm:right-[10%]'
+                          : 'top-full mt-1.5 left-0 sm:left-[10%]'
+                        : isMe
+                          ? '-top-9 left-1/2 -translate-x-1/2 sm:top-0 sm:translate-x-0 sm:right-[82%] sm:left-auto'
+                          : '-top-9 left-1/2 -translate-x-1/2 sm:top-0 sm:translate-x-0 sm:left-[82%] sm:right-auto'
                     } ${
                       isMobileSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
                     }`}
@@ -1242,19 +1258,32 @@ export const ChatBox: React.FC = () => {
 
                 {/* Categorized Quick Emoji Popover */}
                 {showEmojiPicker === msg.id && (
-                  <div className="mt-2 p-2 rounded-2xl bg-slate-900/95 border border-white/15 shadow-2xl z-20 animate-fadeIn space-y-1.5 max-w-xs">
-                    <div className="flex space-x-1 border-b border-white/10 pb-1 overflow-x-auto text-[10px]">
-                      {Object.keys(CATEGORIZED_EMOJIS).map((cat) => (
-                        <button
-                          key={cat}
-                          onClick={() => setSelectedEmojiCat(cat)}
-                          className={`px-2 py-0.5 rounded-lg whitespace-nowrap font-medium transition ${
-                            selectedEmojiCat === cat ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {cat.split(' ')[0]}
-                        </button>
-                      ))}
+                  <div className="mt-2 p-2.5 rounded-2xl bg-slate-900/95 border border-white/15 shadow-2xl z-30 animate-fadeIn space-y-1.5 max-w-xs relative">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-1 text-[10px]">
+                      <div className="flex space-x-1 overflow-x-auto no-scrollbar pr-1">
+                        {Object.keys(CATEGORIZED_EMOJIS).map((cat) => (
+                          <button
+                            key={cat}
+                            onClick={() => setSelectedEmojiCat(cat)}
+                            className={`px-2 py-0.5 rounded-lg whitespace-nowrap font-medium transition ${
+                              selectedEmojiCat === cat ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {cat.split(' ')[0]}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setShowEmojiPicker(null);
+                          setMobileActiveMsgId(null);
+                        }}
+                        className="p-1 text-slate-400 hover:text-white rounded-md shrink-0 transition"
+                        title="Close Emoji Picker"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
 
                     <div className="grid grid-cols-6 gap-1">
