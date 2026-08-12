@@ -13,6 +13,7 @@ export interface RoomSession {
   passwordHash: string; // Plain password or hash for P2P authentication
   userId: string;
   user: User;
+  peers?: User[];
   createdAt: number;
 }
 
@@ -145,7 +146,8 @@ export type SyncEventType =
   | 'SKIP_VOTE_CHANGE'
   | 'REQUEST_MEDIA_STREAM'
   | 'PULL_PEER_STREAM'
-  | 'ROOM_STATE_SYNC';
+  | 'ROOM_STATE_SYNC'
+  | 'HOST_ANNOUNCE';
 
 
 

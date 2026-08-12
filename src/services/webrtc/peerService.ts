@@ -19,6 +19,7 @@ class PeerService {
   private broadcastChannel: BroadcastChannel | null = null;
   private messageHandlers: MessageHandler[] = [];
   private isInitialized = false;
+  private autoReconnectTimer: any = null;
 
   public init(roomId: string, userId: string, isHost: boolean): Promise<string> {
     if (this.isInitialized && this.peer) {
@@ -62,6 +63,25 @@ class PeerService {
         this.peer.on('open', (id) => {
           console.log('[P2P] Peer initialized with ID:', id);
           this.isInitialized = true;
+          if (isHost) {
+            if (this.broadcastChannel) {
+              try {
+                this.broadcastChannel.postMessage({
+                  type: 'HOST_ANNOUNCE',
+                  senderId: userId,
+                  timestamp: Date.now(),
+                  payload: { roomId },
+                });
+              } catch (e) {}
+            }
+            const knownPeers = useRoomStore.getState().peers;
+            knownPeers.forEach((p) => {
+              if (p.id !== userId) {
+                const guestPeerId = `synclounge-${roomId.toLowerCase()}-${p.id.slice(-6)}`;
+                this.connectToPeer(guestPeerId);
+              }
+            });
+          }
           resolve(id);
         });
 
@@ -117,6 +137,48 @@ class PeerService {
     });
   }
 
+  public connectToPeer(peerId: string): Promise<DataConnection | null> {
+    if (!this.peer || this.connections.has(peerId)) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      try {
+        const conn = this.peer!.connect(peerId, { reliable: true });
+        this.setupDataConnection(conn);
+        conn.on('open', () => resolve(conn));
+        setTimeout(() => resolve(conn), 3000);
+      } catch (err) {
+        resolve(null);
+      }
+    });
+  }
+
+  public startAutoReconnect(roomId: string) {
+    if (this.autoReconnectTimer) return;
+
+    let attempts = 0;
+    console.log('[P2P] Connection lost. Starting auto-reconnect retry loop...');
+
+    this.autoReconnectTimer = setInterval(async () => {
+      attempts++;
+      const { isHost, currentUser } = useRoomStore.getState();
+
+      if (isHost || this.connections.size > 0 || attempts > 20) {
+        clearInterval(this.autoReconnectTimer);
+        this.autoReconnectTimer = null;
+        return;
+      }
+
+      console.log(`[P2P] Auto-reconnecting to room "${roomId}" (attempt ${attempts})...`);
+      const conn = await this.connectToHost(roomId);
+      if (conn && currentUser) {
+        const normalizedPassword = (useRoomStore.getState().password || '').trim();
+        this.broadcast('JOIN_REQUEST', {
+          password: normalizedPassword,
+          user: currentUser,
+        });
+      }
+    }, 2500);
+  }
+
   private setupDataConnection(conn: DataConnection) {
     this.connections.set(conn.peer, conn);
 
@@ -139,8 +201,10 @@ class PeerService {
 
     conn.on('close', () => {
       this.connections.delete(conn.peer);
-      const roomStore = useRoomStore.getState();
-      roomStore.removePeer(conn.peer);
+      const { isHost, roomId } = useRoomStore.getState();
+      if (!isHost && roomId) {
+        this.startAutoReconnect(roomId);
+      }
     });
 
     conn.on('error', (err) => {
@@ -247,6 +311,23 @@ class PeerService {
               chatMessages: useChatStore.getState().messages,
               peers: [...useRoomStore.getState().peers, currentUser],
             },
+          });
+        }
+        break;
+      }
+
+      case 'HOST_ANNOUNCE': {
+        const { roomId: annRoomId } = payload;
+        const currentRoomId = useRoomStore.getState().roomId;
+        if (!isHost && currentRoomId && annRoomId && annRoomId.toUpperCase() === currentRoomId.toUpperCase()) {
+          console.log('[P2P] Host re-announced room presence. Reconnecting...');
+          this.connectToHost(currentRoomId).then((conn) => {
+            if (conn && currentUser) {
+              this.broadcast('JOIN_REQUEST', {
+                password: (password || '').trim(),
+                user: currentUser,
+              });
+            }
           });
         }
         break;

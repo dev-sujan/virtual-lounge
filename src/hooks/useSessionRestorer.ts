@@ -14,6 +14,9 @@ export function useSessionRestorer() {
         session.user,
         session.user.isHost
       );
+      if (session.peers && Array.isArray(session.peers) && session.peers.length > 0) {
+        useRoomStore.getState().setPeers(session.peers);
+      }
     }
     setIsRestored(true);
   }, []);

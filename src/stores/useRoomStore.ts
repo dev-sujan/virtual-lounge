@@ -37,6 +37,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
       passwordHash: password,
       userId: user.id,
       user,
+      peers: get().peers,
       createdAt: Date.now(),
     };
     saveSessionToStorage(session);
@@ -66,16 +67,53 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     saveSessionToStorage(session);
   },
 
-  setPeers: (peers) => set({ peers }),
+  setPeers: (peers) => {
+    set({ peers });
+    const current = get().currentUser;
+    if (current && get().roomId) {
+      saveSessionToStorage({
+        roomId: get().roomId || '',
+        passwordHash: get().password || '',
+        userId: current.id,
+        user: current,
+        peers,
+        createdAt: Date.now(),
+      });
+    }
+  },
 
   addPeer: (peer) => {
     const peers = get().peers;
     if (peers.some((p) => p.id === peer.id)) return;
-    set({ peers: [...peers, peer] });
+    const newPeers = [...peers, peer];
+    set({ peers: newPeers });
+    const current = get().currentUser;
+    if (current && get().roomId) {
+      saveSessionToStorage({
+        roomId: get().roomId || '',
+        passwordHash: get().password || '',
+        userId: current.id,
+        user: current,
+        peers: newPeers,
+        createdAt: Date.now(),
+      });
+    }
   },
 
   removePeer: (peerId) => {
-    set({ peers: get().peers.filter((p) => p.id !== peerId) });
+    const newPeers = get().peers.filter((p) => p.id !== peerId);
+    set({ peers: newPeers });
+    const current = get().currentUser;
+    if (current && get().roomId) {
+      saveSessionToStorage({
+        roomId: get().roomId || '',
+        passwordHash: get().password || '',
+        userId: current.id,
+        user: current,
+        peers: newPeers,
+        createdAt: Date.now(),
+      });
+    }
   },
 
   updatePeerStatus: (peerId, updates) => {
