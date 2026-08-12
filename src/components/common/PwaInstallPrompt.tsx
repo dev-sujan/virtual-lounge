@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Download, Check } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 export const PwaInstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);

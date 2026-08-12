@@ -3,7 +3,7 @@ import { useRoomStore } from '../../stores/useRoomStore';
 import { useVideoStore } from '../../stores/useVideoStore';
 import { NotificationCenter } from '../common/NotificationCenter';
 import { ThemeSelector } from '../common/ThemeSelector';
-import { AmbientSoundPlayer } from '../music/AmbientSoundPlayer';
+import { AmbientSoundPlayer } from '../common/AmbientSoundPlayer';
 import { PwaInstallPrompt } from '../common/PwaInstallPrompt';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
