@@ -12,8 +12,11 @@ interface MusicState {
   shuffleMode: boolean;
   autoPlayRadio: boolean;
   sortMode: 'priority' | 'manual';
+  // Peer reaction events — each entry is { emoji, id } so YouTubePlayer can react
+  pendingReaction: { emoji: string; id: string } | null;
 
   // Actions
+  triggerReaction: (emoji: string) => void;
   setCurrentTrack: (track: QueueItem | null) => void;
   setQueue: (queue: QueueItem[]) => void;
   setHistory: (history: QueueItem[]) => void;
@@ -55,6 +58,10 @@ export const useMusicStore = create<MusicState>((set, get) => ({
   },
   repeatMode: 'off',
   shuffleMode: false,
+  pendingReaction: null,
+
+  triggerReaction: (emoji) =>
+    set({ pendingReaction: { emoji, id: Math.random().toString(36).slice(2) } }),
   autoPlayRadio: true,
   sortMode: 'priority',
 

@@ -5,7 +5,7 @@ import { useToastStore } from '../../stores/useToastStore';
 import { peerService } from '../../services/webrtc/peerService';
 import { formatTime } from '../../utils/youtubeUtils';
 import { AudioEqualizer } from './AudioEqualizer';
-import type { SyncMessagePayload } from '../../types';
+
 
 import {
   Play,
@@ -51,6 +51,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
     repeatMode,
     shuffleMode,
     skipVotes,
+    pendingReaction,
     setPlaybackState,
     skipTrack,
     setRepeatMode,
@@ -71,20 +72,14 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
   const [floatingEmojis, setFloatingEmojis] = useState<FloatingEmoji[]>([]);
   const isInternalSeeking = useRef(false);
 
-  // Register listener for remote reactions
+  // Subscribe to pendingReaction from store — set by peerService when a peer sends MUSIC_REACTION
+  const prevReactionId = useRef<string | null>(null);
   useEffect(() => {
-    const unsub = peerService.onMessage?.((msg: SyncMessagePayload) => {
-      if (msg.type === 'MUSIC_REACTION') {
-        const { emoji } = msg.payload;
-        triggerFloatingEmoji(emoji);
-      }
-    });
-
-
-    return () => {
-      if (unsub) unsub();
-    };
-  }, []);
+    if (pendingReaction && pendingReaction.id !== prevReactionId.current) {
+      prevReactionId.current = pendingReaction.id;
+      triggerFloatingEmoji(pendingReaction.emoji);
+    }
+  }, [pendingReaction]);
 
   useEffect(() => {
     if (window.YT && window.YT.Player) {

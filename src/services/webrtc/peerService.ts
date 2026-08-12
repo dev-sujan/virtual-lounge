@@ -441,7 +441,16 @@ class PeerService {
 
 
 
+      case 'MUSIC_REACTION': {
+        const { emoji } = payload;
+        if (emoji) {
+          useMusicStore.getState().triggerReaction(emoji);
+        }
+        break;
+      }
+
       case 'CHAT_MESSAGE': {
+
         useChatStore.getState().addMessage(payload);
         playMessageSound();
         if (payload.senderName && payload.senderName !== currentUser?.displayName) {
