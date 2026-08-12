@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useRoomStore } from '../../stores/useRoomStore';
 import { useVideoStore } from '../../stores/useVideoStore';
-import { AmbientSoundPlayer } from '../common/AmbientSoundPlayer';
-import { ThemeSelector } from '../common/ThemeSelector';
 import { NotificationCenter } from '../common/NotificationCenter';
+import { ThemeSelector } from '../common/ThemeSelector';
+import { AmbientSoundPlayer } from '../music/AmbientSoundPlayer';
+import { PwaInstallPrompt } from '../common/PwaInstallPrompt';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
@@ -89,6 +90,9 @@ export const RoomHeader: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-1.5 sm:space-x-2">
+          {/* PWA Install Button */}
+          <PwaInstallPrompt />
+
           {/* Notification Center */}
           <NotificationCenter />
 

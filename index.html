@@ -6,10 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#07080c" />
     <meta name="description" content="Private Synchronized Social Lounge - Real-time P2P chat, YouTube music synchronization, video calls, and multiplayer games without backends." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SyncLounge" />
+    <link rel="manifest" href="./manifest.json" />
     <title>SyncLounge - Private Synchronized Social Lounge</title>
   </head>
   <body class="bg-[#07080c] text-white antialiased selection:bg-indigo-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js')
+            .then((reg) => console.log('[PWA] Service Worker registered successfully:', reg.scope))
+            .catch((err) => console.warn('[PWA] Service Worker registration failed:', err));
+        });
+      }
+    </script>
   </body>
 </html>
