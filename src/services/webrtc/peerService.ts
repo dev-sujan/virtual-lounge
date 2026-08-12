@@ -268,6 +268,18 @@ class PeerService {
     const payload = await decryptPayload(msg.payload, secretKey);
 
     switch (msg.type) {
+      case 'PING': {
+        this.broadcast('PONG', { pingTimestamp: payload.timestamp });
+        break;
+      }
+
+      case 'PONG': {
+        if (payload.pingTimestamp) {
+          const pingMs = Math.max(1, Math.round(Date.now() - payload.pingTimestamp));
+          useRoomStore.getState().setPeerPing(msg.senderId, pingMs);
+        }
+        break;
+      }
 
       case 'JOIN_REQUEST': {
         const { password: reqPassword, user: reqUser } = payload;

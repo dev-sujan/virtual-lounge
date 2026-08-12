@@ -63,6 +63,7 @@ export function useWebRTC() {
     const heartbeatTimer = setInterval(() => {
       if (currentUser && peerService) {
         peerService.broadcast('PEER_PRESENCE_UPDATE', { user: currentUser });
+        peerService.broadcast('PING', { timestamp: Date.now() });
 
         if (isHost) {
           const musicState = useMusicStore.getState();

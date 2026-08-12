@@ -6,6 +6,8 @@ export interface User {
   isMicOn: boolean;
   isCameraOn: boolean;
   joinedAt: number;
+  pingMs?: number;
+  vibeStatus?: string;
 }
 
 export interface RoomSession {
@@ -147,7 +149,9 @@ export type SyncEventType =
   | 'REQUEST_MEDIA_STREAM'
   | 'PULL_PEER_STREAM'
   | 'ROOM_STATE_SYNC'
-  | 'HOST_ANNOUNCE';
+  | 'HOST_ANNOUNCE'
+  | 'PING'
+  | 'PONG';
 
 
 

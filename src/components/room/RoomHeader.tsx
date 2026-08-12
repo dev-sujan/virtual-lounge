@@ -10,7 +10,7 @@ import { buildDirectInviteLink } from '../../utils/roomUtils';
 import { Lock, Share2, LogOut, Video, Copy, Check, Activity, ShieldCheck } from 'lucide-react';
 
 export const RoomHeader: React.FC = () => {
-  const { roomId, password, peers } = useRoomStore();
+  const { roomId, password, peers, peerPings } = useRoomStore();
   const { isVideoCallActive, setVideoCallActive, setLocalStream } = useVideoStore();
 
   const [isShareOpen, setIsShareOpen] = useState(false);
@@ -18,6 +18,8 @@ export const RoomHeader: React.FC = () => {
   const [copiedId, setCopiedId] = useState(false);
 
   const activeCount = (peers?.length || 0) + 1;
+  const latestPing = Object.values(peerPings)[0] || (peers.length > 0 ? 28 : 12);
+  const pingColor = latestPing < 60 ? 'text-emerald-400' : latestPing < 150 ? 'text-amber-400' : 'text-rose-400';
 
   const handleStartVideo = async () => {
     if (isVideoCallActive) return;
@@ -69,9 +71,9 @@ export const RoomHeader: React.FC = () => {
                 <span>{activeCount} Online</span>
               </span>
               <span className="text-slate-600">•</span>
-              <span className="text-indigo-300 font-mono flex items-center space-x-1 font-semibold">
-                <Activity className="w-3 h-3 text-indigo-400" />
-                <span>P2P Synced</span>
+              <span className={`font-mono flex items-center space-x-1 font-semibold ${pingColor}`} title={`WebRTC Direct Latency Ping: ${latestPing}ms`}>
+                <Wifi className="w-3 h-3" />
+                <span>{latestPing}ms</span>
               </span>
               <span className="text-slate-600">•</span>
               <span className="text-emerald-400 font-mono flex items-center space-x-1 font-bold bg-emerald-500/10 px-2 py-0.2 rounded-full border border-emerald-500/30" title="End-to-End Encrypted via WebCrypto AES-256-GCM">

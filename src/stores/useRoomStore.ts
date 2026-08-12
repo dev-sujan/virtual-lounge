@@ -11,6 +11,8 @@ interface RoomState {
   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
   errorMessage: string | null;
 
+  peerPings: Record<string, number>;
+
   // Actions
   setRoomSession: (roomId: string, password: string, user: User, isHost: boolean) => void;
   updateCurrentUser: (updates: Partial<User>) => void;
@@ -18,6 +20,7 @@ interface RoomState {
   addPeer: (peer: User) => void;
   removePeer: (peerId: string) => void;
   updatePeerStatus: (peerId: string, updates: Partial<User>) => void;
+  setPeerPing: (peerId: string, pingMs: number) => void;
   setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'error', error?: string) => void;
   leaveRoom: () => void;
 }
@@ -27,6 +30,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   password: null,
   currentUser: null,
   peers: [],
+  peerPings: {},
   isHost: false,
   connectionStatus: 'disconnected',
   errorMessage: null,
@@ -119,6 +123,13 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   updatePeerStatus: (peerId, updates) => {
     set({
       peers: get().peers.map((p) => (p.id === peerId ? { ...p, ...updates } : p)),
+    });
+  },
+
+  setPeerPing: (peerId, pingMs) => {
+    set({
+      peerPings: { ...get().peerPings, [peerId]: pingMs },
+      peers: get().peers.map((p) => (p.id === peerId ? { ...p, pingMs } : p)),
     });
   },
 
