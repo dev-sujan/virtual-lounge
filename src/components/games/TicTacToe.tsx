@@ -23,6 +23,8 @@ export const TicTacToe: React.FC = () => {
   const otherPeer = peers.find((p) => p.id !== currentUser?.id);
   const isPlayer1 = currentUser?.isHost || (otherPeer && currentUser ? currentUser.id < otherPeer.id : true);
   const symbol = isPlayer1 ? 'X' : 'O';
+  const isMyTurn = ticTacToe.turn === currentUser?.id || !ticTacToe.turn;
+
 
   const handleCellClick = (index: number) => {
     if (!currentUser || ticTacToe.board[index] || ticTacToe.winner || !isMyTurn) return;
