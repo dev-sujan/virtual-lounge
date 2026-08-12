@@ -412,7 +412,7 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
               </div>
 
               {/* Main Controls Row */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
                 {/* Mode Toggles */}
                 <div className="flex items-center space-x-1 sm:space-x-2">
                   <button

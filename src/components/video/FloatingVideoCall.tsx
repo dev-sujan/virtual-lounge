@@ -112,7 +112,7 @@ export const FloatingVideoCall: React.FC = () => {
   if (isMinimized) {
     return (
       <div
-        className="fixed bottom-20 right-4 z-50 glass-card px-4 py-2.5 rounded-full border border-indigo-500/40 shadow-2xl flex items-center space-x-3 animate-bounce"
+        className="fixed bottom-20 sm:bottom-6 right-3 z-50 glass-card px-4 py-2.5 rounded-full border border-indigo-500/40 shadow-2xl flex items-center space-x-3 animate-bounce"
         style={{ backdropFilter: 'blur(16px)' }}
       >
         <div className="flex items-center space-x-2">
@@ -145,12 +145,12 @@ export const FloatingVideoCall: React.FC = () => {
           ? { top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }
           : { top: `${position.y}px`, left: `${position.x}px` }
       }
-      className={`fixed z-50 transition-all duration-150 ease-out select-none ${
+      className={`fixed z-50 transition-all duration-150 ease-out select-none max-w-[calc(100vw-24px)] ${
         isFullscreen
           ? 'bg-black/95 flex flex-col p-4'
           : isScreenSharing || pinnedStreamId || remoteStreams.length > 0
-          ? 'w-80 sm:w-96 rounded-2xl glass-card border border-indigo-500/30 shadow-2xl overflow-hidden'
-          : 'w-72 sm:w-80 rounded-2xl glass-card border border-white/20 shadow-2xl overflow-hidden'
+          ? 'w-[calc(100vw-24px)] sm:w-96 rounded-2xl glass-card border border-indigo-500/30 shadow-2xl overflow-hidden'
+          : 'w-[calc(100vw-24px)] sm:w-80 rounded-2xl glass-card border border-white/20 shadow-2xl overflow-hidden'
       }`}
     >
       {/* Header Bar */}

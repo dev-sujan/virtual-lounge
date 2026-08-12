@@ -44,42 +44,48 @@ export const AudioEqualizer: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 bottom-12 z-50 glass-card p-3.5 rounded-2xl border border-white/15 shadow-2xl w-64 animate-fadeIn space-y-2">
-          <div className="flex items-center justify-between border-b border-white/10 pb-2">
-            <span className="text-xs font-bold text-white flex items-center space-x-1.5">
-              <Sparkles className="w-4 h-4 text-purple-400" />
-              <span>Audio Equalizer Presets</span>
-            </span>
-          </div>
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:bottom-20 max-sm:w-auto max-sm:max-h-[75dvh] max-sm:overflow-y-auto sm:absolute sm:right-0 sm:bottom-12 z-50 glass-card p-3.5 rounded-2xl border border-white/15 shadow-2xl w-64 animate-fadeIn space-y-2">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <span className="text-xs font-bold text-white flex items-center space-x-1.5">
+                <Sparkles className="w-4 h-4 text-purple-400" />
+                <span>Audio Equalizer Presets</span>
+              </span>
+            </div>
 
-          <div className="space-y-1">
-            {PRESETS.map((p) => {
-              const isSelected = activePreset === p.id;
+            <div className="space-y-1">
+              {PRESETS.map((p) => {
+                const isSelected = activePreset === p.id;
 
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => handleSelect(p.id)}
-                  className={`w-full p-2 rounded-xl text-left transition border flex items-center justify-between ${
-                    isSelected
-                      ? 'bg-purple-600/30 border-purple-400/50 text-white font-bold'
-                      : 'hover:bg-white/5 border-transparent text-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2.5 overflow-hidden">
-                    <span className="text-base shrink-0">{p.icon}</span>
-                    <div className="overflow-hidden">
-                      <div className="text-xs text-white truncate">{p.name}</div>
-                      <div className="text-[10px] text-slate-400 truncate">{p.desc}</div>
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => handleSelect(p.id)}
+                    className={`w-full p-2 rounded-xl text-left transition border flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-purple-600/30 border-purple-400/50 text-white font-bold'
+                        : 'hover:bg-white/5 border-transparent text-slate-300'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 overflow-hidden">
+                      <span className="text-base shrink-0">{p.icon}</span>
+                      <div className="overflow-hidden">
+                        <div className="text-xs text-white truncate">{p.name}</div>
+                        <div className="text-[10px] text-slate-400 truncate">{p.desc}</div>
+                      </div>
                     </div>
-                  </div>
 
-                  {isSelected && <Check className="w-4 h-4 text-purple-400 shrink-0 ml-1" />}
-                </button>
-              );
-            })}
+                    {isSelected && <Check className="w-4 h-4 text-purple-400 shrink-0 ml-1" />}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

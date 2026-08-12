@@ -960,8 +960,10 @@ export const ChatBox: React.FC = () => {
                 {/* Action Toolbar - Desktop Hover + Mobile Touch Fix */}
                 {!msg.isUnsent && (
                   <div
-                    className={`absolute top-0 transition-all flex items-center space-x-1 bg-slate-900/95 border border-white/15 rounded-full px-2 py-1 shadow-xl z-10 ${
-                      isMe ? 'right-[82%]' : 'left-[82%]'
+                    className={`absolute transition-all flex items-center space-x-1 bg-slate-900/95 border border-white/15 rounded-full px-2 py-1 shadow-xl z-10 ${
+                      isMe
+                        ? '-top-9 left-1/2 -translate-x-1/2 sm:top-0 sm:translate-x-0 sm:right-[82%] sm:left-auto'
+                        : '-top-9 left-1/2 -translate-x-1/2 sm:top-0 sm:translate-x-0 sm:left-[82%] sm:right-auto'
                     } ${
                       isMobileSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100'
                     }`}
@@ -1366,15 +1368,21 @@ export const ChatBox: React.FC = () => {
 
       {/* Expanded Image Lightbox Modal */}
       {showImageModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-          <div className="relative max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl border border-white/20 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn"
+          onClick={() => setShowImageModal(null)}
+        >
+          <div
+            className="relative max-w-3xl max-h-[85dvh] overflow-hidden rounded-2xl border border-white/20 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               onClick={() => setShowImageModal(null)}
-              className="absolute top-3 right-3 p-2 bg-black/60 text-white rounded-full hover:bg-black transition z-10"
+              className="absolute top-3 right-3 p-2.5 bg-black/70 text-white rounded-full hover:bg-black transition z-10 min-w-[44px] min-h-[44px] flex items-center justify-center"
             >
               <X className="w-5 h-5" />
             </button>
-            <img src={showImageModal} alt="Expanded preview" className="w-full h-full object-contain max-h-[80vh]" />
+            <img src={showImageModal} alt="Expanded preview" className="w-full h-full object-contain max-h-[80dvh]" />
           </div>
         </div>
       )}

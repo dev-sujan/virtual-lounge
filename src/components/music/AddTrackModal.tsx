@@ -140,74 +140,74 @@ export const AddTrackModal: React.FC<AddTrackModalProps> = ({ isOpen, onClose })
     : PRESET_LOUNGE_TRACKS.filter((t) => t.genre === selectedGenre);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="glass-card w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[85vh] relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className="glass-card w-full max-w-2xl rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[90dvh] sm:max-h-[85vh] relative">
         {/* Header */}
-        <div className="p-6 border-b border-white/10 flex items-center justify-between bg-slate-900/40">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow">
-              <Music className="w-5 h-5" />
+        <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between bg-slate-900/40">
+          <div className="flex items-center space-x-2.5 sm:space-x-3 overflow-hidden">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow shrink-0">
+              <Music className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-white flex items-center space-x-2">
-                <span>Add Lounge Music</span>
-                <span className="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-mono">
+            <div className="overflow-hidden">
+              <h2 className="text-base sm:text-xl font-bold text-white flex items-center space-x-1.5 sm:space-x-2">
+                <span className="truncate">Add Lounge Music</span>
+                <span className="text-[10px] sm:text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 sm:px-2 py-0.5 rounded-full font-mono shrink-0">
                   YouTube & Presets
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">Search YouTube, pick curated lounge hits, or import playlists</p>
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate">Search YouTube, pick curated lounge hits, or import playlists</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-full transition hover:bg-white/10"
+            className="p-2 text-slate-400 hover:text-white rounded-full transition hover:bg-white/10 shrink-0 min-w-[44px] min-h-[44px] flex items-center justify-center"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Buttons */}
-        <div className="px-6 pt-4 flex space-x-2 border-b border-white/5 bg-slate-950/20">
+        <div className="px-3 sm:px-6 pt-3 sm:pt-4 flex space-x-2 border-b border-white/5 bg-slate-950/20 overflow-x-auto no-scrollbar whitespace-nowrap">
           <button
             onClick={() => setActiveTab('search')}
-            className={`px-4 py-2.5 rounded-t-xl text-xs font-semibold flex items-center space-x-2 transition border-b-2 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-t-xl text-xs font-semibold flex items-center space-x-1.5 sm:space-x-2 transition border-b-2 shrink-0 ${
               activeTab === 'search'
                 ? 'border-indigo-500 text-indigo-400 bg-white/5'
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            <Search className="w-4 h-4" />
+            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Search & Link</span>
           </button>
 
           <button
             onClick={() => setActiveTab('presets')}
-            className={`px-4 py-2.5 rounded-t-xl text-xs font-semibold flex items-center space-x-2 transition border-b-2 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-t-xl text-xs font-semibold flex items-center space-x-1.5 sm:space-x-2 transition border-b-2 shrink-0 ${
               activeTab === 'presets'
                 ? 'border-indigo-500 text-indigo-400 bg-white/5'
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Lounge Presets</span>
           </button>
 
           <button
             onClick={() => setActiveTab('import')}
-            className={`px-4 py-2.5 rounded-t-xl text-xs font-semibold flex items-center space-x-2 transition border-b-2 ${
+            className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-t-xl text-xs font-semibold flex items-center space-x-1.5 sm:space-x-2 transition border-b-2 shrink-0 ${
               activeTab === 'import'
                 ? 'border-indigo-500 text-indigo-400 bg-white/5'
                 : 'border-transparent text-slate-400 hover:text-white'
             }`}
           >
-            <FileText className="w-4 h-4" />
+            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Import Playlist</span>
           </button>
         </div>
 
         {/* Tab Body */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-4 overscroll-contain">
           {activeTab === 'search' && (
             <div className="space-y-4">
               <div className="relative">
