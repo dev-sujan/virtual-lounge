@@ -50,8 +50,8 @@ interface VideoState {
 
 export const useVideoStore = create<VideoState>((set, get) => ({
   localStream: null,
-  isMicOn: true,
-  isCameraOn: true,
+  isMicOn: false,
+  isCameraOn: false,
   isScreenSharing: false,
   isVideoCallActive: false,
   remoteStreams: [],

@@ -96,6 +96,7 @@ The application is built for maximum touch-screen fluidity:
 - **Room QR Code Generator**: Built-in QR Code generator in `ShareModal` that creates instant scannable QR codes for smartphone camera 1-click lounge entry.
 - **WebRTC Latency & Signal Strength Ping**: Real-time PING/PONG data latency measurement (`24ms`) with color-coded signal quality indicators (📶 Green `<60ms` / Yellow / Red).
 - **Peer Navigation & Activity Tracking Bubbles**: Live peer tab activity tracking (`🎧 Listening`, `💬 In Live Chat`, `🎮 Gaming`) with transparent glassmorphic active tabs (`bg-white/15 backdrop-blur-md`) and message bubble activity badges.
+- **Privacy-First Video Chat (Mic & Video OFF by Default)**: When starting or joining P2P video chat, microphone and camera tracks are muted and disabled by default until explicitly enabled by the user.
 
 ---
 

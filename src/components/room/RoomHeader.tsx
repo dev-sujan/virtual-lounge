@@ -26,8 +26,11 @@ export const RoomHeader: React.FC = () => {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream.getAudioTracks().forEach((t) => (t.enabled = false));
+      stream.getVideoTracks().forEach((t) => (t.enabled = false));
       setLocalStream(stream);
       setVideoCallActive(true);
+      useVideoStore.setState({ isMicOn: false, isCameraOn: false });
       const { peerService } = await import('../../services/webrtc/peerService');
       peerService.callAllPeers(stream);
     } catch (err) {
