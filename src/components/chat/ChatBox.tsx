@@ -1621,7 +1621,8 @@ export const ChatBox: React.FC = () => {
             <Send className="w-4 h-4" />
           </button>
         </form>
-      )}
+      </div>
+    )}
 
       {/* Expanded Image Lightbox Modal */}
       {showImageModal && (
