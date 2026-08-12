@@ -100,7 +100,7 @@ The application is built for maximum touch-screen fluidity:
 - **Progressive Web App (PWA)**: Install SyncLounge as a native app on iOS, Android, macOS, or Windows with 1-click home screen installation, offline Service Worker asset caching (`sw.js`), standalone window mode, and custom app manifest (`manifest.json`).
 - **PWA Native OS Push Notifications & App Badge**: Background desktop & mobile native system notifications for @mentions, track updates, and room events, along with real-time app icon unread badge counts (`setAppBadge`).
 - **Offline Network Detection & Banner**: Automatic `navigator.onLine` status detection with floating glassmorphic offline alert banners (`OfflineBanner`).
-- **Icon-Only Streamlined Header UI (`RoomHeader.tsx`)**: Ultra-slim single-row header bar with icon-only action buttons (`Download`, `Bell`, `Palette`, `Volume`, `Video`, `Share`, `LogOut`) and hover tooltips for a sleek, non-cluttered user interface.
+- **Organized 2-Row Header UI (`RoomHeader.tsx`)**: Perfectly balanced 2-row layout featuring Room ID & primary actions (Call, Invite, Leave) on the top row, and network status badges (Online, Ping, E2EE) & utility controls (PWA, Notifications, Theme, Ambient Sound) on the bottom row.
 - **Copyright & Terms & Conditions (`TermsModal.tsx`)**: Official Copyright © 2026 Sujan Maji legal notices, End-to-End Encryption Privacy Policy, and Terms & Conditions modal.
 
 ---
