@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRoomStore } from '../stores/useRoomStore';
 import { generateRoomId, generatePassword, generateUserId, parseInviteParams, AVATAR_COLORS } from '../utils/roomUtils';
+import { TermsModal } from '../components/common/TermsModal';
 import { Music, Sparkles, ArrowRight, ShieldCheck, PlayCircle, Video, Gamepad2, Check } from 'lucide-react';
 
 export const Home: React.FC = () => {
   const [tab, setTab] = useState<'create' | 'join'>('create');
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   // Form Fields
   const [displayName, setDisplayName] = useState('');
@@ -321,9 +323,30 @@ export const Home: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center text-xs text-slate-500 border-t border-white/5 z-10">
-        SyncLounge • Static PWA Architecture for GitHub Pages
+      <footer className="py-6 text-center text-xs text-slate-400 border-t border-white/5 z-10 flex flex-col items-center justify-center space-y-1.5 px-4">
+        <div>
+          <span>Copyright © 2026 </span>
+          <strong className="text-slate-200">Sujan Maji</strong>
+          <span>. All Rights Reserved.</span>
+        </div>
+        <div className="flex items-center space-x-3 text-[11px]">
+          <button
+            onClick={() => setIsTermsOpen(true)}
+            className="text-indigo-400 hover:text-indigo-300 underline font-medium transition"
+          >
+            Terms & Conditions
+          </button>
+          <span>•</span>
+          <button
+            onClick={() => setIsTermsOpen(true)}
+            className="text-indigo-400 hover:text-indigo-300 underline font-medium transition"
+          >
+            Privacy Policy
+          </button>
+        </div>
       </footer>
+
+      <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
     </div>
   );
 };

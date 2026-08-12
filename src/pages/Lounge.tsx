@@ -9,6 +9,7 @@ import { ChatBox } from '../components/chat/ChatBox';
 import { GameSelector } from '../components/games/GameSelector';
 import { FloatingVideoCall } from '../components/video/FloatingVideoCall';
 import { ToastContainer } from '../components/common/ToastContainer';
+import { TermsModal } from '../components/common/TermsModal';
 import { useVideoStore } from '../stores/useVideoStore';
 import { getInitials } from '../utils/avatarUtils';
 import { Music, MessageSquare, Gamepad2, Users, Mic, MicOff, Video } from 'lucide-react';
@@ -18,6 +19,7 @@ type LoungeTab = 'music' | 'chat' | 'games' | 'members';
 export const Lounge: React.FC = () => {
   const [activeTab, setActiveTab] = useState<LoungeTab>('music');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   const { peers, currentUser } = useRoomStore();
   const { isVideoCallActive, setVideoCallActive, setLocalStream, isMicOn, toggleMic } = useVideoStore();
@@ -280,6 +282,7 @@ export const Lounge: React.FC = () => {
       </nav>
 
       <AddTrackModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} />
+      <TermsModal isOpen={isTermsOpen} onClose={() => setIsTermsOpen(false)} />
     </div>
   );
 };
