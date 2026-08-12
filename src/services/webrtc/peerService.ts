@@ -195,12 +195,15 @@ class PeerService {
 
     conn.on('open', () => {
       console.log('[P2P] DataChannel opened with peer:', conn.peer);
-      const { currentUser, isHost, password } = useRoomStore.getState();
-      if (!isHost && currentUser) {
+      const { currentUser, isHost, password, roomId } = useRoomStore.getState();
+
+      // Only send JOIN_REQUEST when connecting to the host peer.
+      // In mesh mode guests also connect to each other - those don't need JOIN_REQUEST.
+      const isConnectingToHost = conn.peer.includes(`synclounge-room-`);
+
+      if (!isHost && currentUser && isConnectingToHost) {
         // Send JOIN_REQUEST directly over this specific DataChannel connection
-        // (NOT via broadcast which might miss unopen connections)
         const normalizedPassword = (password || '').trim();
-        const { roomId } = useRoomStore.getState();
         const activeRoomId = (roomId || 'default_lounge').toLowerCase().trim();
         const secretKey = `synclounge_${activeRoomId}_${normalizedPassword}`;
 
@@ -455,6 +458,21 @@ class PeerService {
             if (roomState.peers) {
               const filteredPeers = roomState.peers.filter((p: User) => p.id !== currentUser.id);
               useRoomStore.getState().setPeers(filteredPeers);
+
+              // MESH: Connect directly to all existing guests (not just host)
+              // so guest-to-guest messages work without host relay
+              const { roomId: currentRoomId } = useRoomStore.getState();
+              if (currentRoomId) {
+                filteredPeers.forEach((existingPeer) => {
+                  if (!existingPeer.isHost) {
+                    const guestPeerId = `synclounge-${currentRoomId.toLowerCase()}-${existingPeer.id.slice(-6)}`;
+                    // Connect to existing guest peer (setupDataConnection won't re-send JOIN_REQUEST since we're not host)
+                    if (!this.connections.has(guestPeerId)) {
+                      this.connectToPeer(guestPeerId);
+                    }
+                  }
+                });
+              }
             }
           }
         }
@@ -692,6 +710,28 @@ class PeerService {
 
       default:
         break;
+    }
+
+    // HOST RELAY: If this node is the host and message came from a guest,
+    // forward the original encrypted wire message to all other connected peers.
+    // This is the key fix for >2 person rooms: Host acts as relay hub.
+    const { isHost: nowIsHost, currentUser: nowCurrentUser } = useRoomStore.getState();
+    if (nowIsHost && nowCurrentUser && msg.senderId !== nowCurrentUser.id) {
+      // Messages that should NOT be relayed (host-only or would cause loops)
+      const noRelayTypes: SyncEventType[] = ['PING', 'PONG', 'JOIN_REQUEST', 'JOIN_RESPONSE', 'HOST_ANNOUNCE'];
+      if (!noRelayTypes.includes(msg.type)) {
+        this.connections.forEach((conn, connPeerId) => {
+          // Relay to all peers EXCEPT the sender (identified by last 6 chars of their userId)
+          const isSender = connPeerId.endsWith(msg.senderId.slice(-6)) || connPeerId === msg.senderId;
+          if (!isSender && conn.open) {
+            try {
+              conn.send(msg); // Forward original encrypted message as-is
+            } catch (e) {
+              console.warn('[P2P] Relay forward failed:', e);
+            }
+          }
+        });
+      }
     }
 
     this.messageHandlers.forEach((handler) => handler(msg));
