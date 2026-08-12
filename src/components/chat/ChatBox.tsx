@@ -259,7 +259,7 @@ export const ChatBox: React.FC = () => {
     clearChat,
   } = useChatStore();
 
-  const { currentUser, isHost } = useRoomStore();
+  const { currentUser, isHost, peers } = useRoomStore();
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
