@@ -261,11 +261,24 @@ export const FloatingVideoCall: React.FC = () => {
       )}
 
       {/* Video Grid / Stage View */}
-      <div
-        className={`grid gap-2 p-2 bg-black/70 ${
-          isFullscreen ? 'flex-1 grid-cols-1 sm:grid-cols-2' : isScreenSharing || pinnedStreamId ? 'h-64 grid-cols-1' : 'h-56 grid-cols-1 sm:grid-cols-2'
-        }`}
-      >
+      {(() => {
+        const totalStreams = remoteStreams.length + 1; // +1 for local
+        const gridCols = pinnedStreamId || isScreenSharing
+          ? 'grid-cols-1'
+          : totalStreams <= 2
+          ? 'grid-cols-1 sm:grid-cols-2'
+          : totalStreams <= 4
+          ? 'grid-cols-2'
+          : 'grid-cols-2 sm:grid-cols-3';
+        const gridHeight = isFullscreen
+          ? 'flex-1'
+          : totalStreams > 2
+          ? 'h-72 sm:h-80'
+          : isScreenSharing || pinnedStreamId
+          ? 'h-64'
+          : 'h-56';
+        return (
+      <div className={`grid gap-2 p-2 bg-black/70 ${gridHeight} ${gridCols}`}>
         {/* Local Stream Card */}
         <div
           className={`relative rounded-xl overflow-hidden bg-slate-900 border transition-all flex items-center justify-center group ${
@@ -327,6 +340,8 @@ export const FloatingVideoCall: React.FC = () => {
           />
         ))}
       </div>
+        );
+      })()}
 
       {/* Control Buttons Bar */}
       <div className="p-3 bg-slate-900/90 border-t border-white/10 flex items-center justify-center space-x-3">

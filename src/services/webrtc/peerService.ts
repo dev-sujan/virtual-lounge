@@ -395,6 +395,19 @@ class PeerService {
             // Fallback: broadcast to all connected peers
             this.broadcast('JOIN_RESPONSE', joinResponsePayload);
           }
+
+          // If a video call is already active, tell all peers (including new one) to pull streams
+          // so the new peer automatically joins the ongoing video call
+          const videoStore = useVideoStore.getState();
+          if (videoStore.isVideoCallActive && this.peer) {
+            // Notify the new peer to pull streams from host
+            setTimeout(() => {
+              this.broadcast('PULL_PEER_STREAM', {
+                targetUserId: 'all',
+                requesterPeerId: this.peer?.id,
+              });
+            }, 1500); // Small delay to let JOIN_RESPONSE be processed first
+          }
         }
         break;
       }
@@ -669,7 +682,7 @@ class PeerService {
         const { targetUserId, requesterPeerId } = payload;
         const currentUserId = useRoomStore.getState().currentUser?.id;
         if (currentUserId && (targetUserId === currentUserId || targetUserId === 'all')) {
-          console.log('[P2P] Peer requested stream pull, re-initiating call to:', requesterPeerId);
+          console.log('[P2P] Peer requested stream pull, re-initiating calls to all peers');
           const videoStore = useVideoStore.getState();
           let streamToUse = videoStore.localStream;
           if (!streamToUse) {
@@ -678,8 +691,13 @@ class PeerService {
               videoStore.setLocalStream(streamToUse);
             } catch {}
           }
-          if (streamToUse && requesterPeerId) {
-            this.callPeer(requesterPeerId, streamToUse);
+          if (streamToUse) {
+            // Call all peers so the new joiner gets streams from everyone
+            this.callAllPeers(streamToUse);
+            // Also specifically call the requester in case they're not in peers list yet
+            if (requesterPeerId && !this.mediaCalls.has(requesterPeerId)) {
+              this.callPeer(requesterPeerId, streamToUse);
+            }
           }
         }
         break;
@@ -772,22 +790,28 @@ class PeerService {
 
   public callAllPeers(stream: MediaStream) {
     if (!this.peer) return;
-    const { peers, roomId, isHost } = useRoomStore.getState();
+    const { peers, roomId, currentUser } = useRoomStore.getState();
+    if (!roomId) return;
 
     const targetPeerIds: string[] = [];
 
-    if (!isHost && roomId) {
-      targetPeerIds.push(`synclounge-room-${roomId.toLowerCase()}`);
+    // Always call the host
+    const hostPeerId = `synclounge-room-${roomId.toLowerCase()}`;
+    if (hostPeerId !== this.peer.id) {
+      targetPeerIds.push(hostPeerId);
     }
 
+    // Also call every other guest in the room
     peers.forEach((peerUser) => {
-      if (roomId && !peerUser.isHost) {
+      if (!peerUser.isHost && peerUser.id !== currentUser?.id) {
         const guestPeerId = `synclounge-${roomId.toLowerCase()}-${peerUser.id.slice(-6)}`;
-        if (guestPeerId !== this.peer?.id) {
+        if (guestPeerId !== this.peer?.id && !targetPeerIds.includes(guestPeerId)) {
           targetPeerIds.push(guestPeerId);
         }
       }
     });
+
+    console.log('[P2P] Calling all peers for video:', targetPeerIds);
 
     targetPeerIds.forEach((targetId) => {
       const existingCall = this.mediaCalls.get(targetId);
@@ -801,6 +825,7 @@ class PeerService {
       }
     });
   }
+
 
   private handleIncomingCall(call: MediaConnection) {
     const videoStore = useVideoStore.getState();
