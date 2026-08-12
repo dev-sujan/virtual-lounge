@@ -49,15 +49,14 @@ export const RoomHeader: React.FC = () => {
 
   return (
     <>
-      <header className="glass-card px-3 sm:px-4 py-2 rounded-2xl border border-white/10 flex items-center justify-between shadow-lg mb-3 gap-2">
-        {/* Left Side: Compact Room Brand & Live Status Pills */}
-        <div className="flex items-center space-x-2 sm:space-x-3 shrink-0 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
-            <Lock className="w-3.5 h-3.5" />
-          </div>
-
-          <div className="flex items-center space-x-2 min-w-0">
-            <span className="font-mono font-black text-xs sm:text-sm text-white tracking-wider truncate">
+      <header className="glass-card px-3 sm:px-4 py-2.5 rounded-2xl border border-white/10 flex flex-wrap items-center justify-between shadow-lg mb-3 gap-y-2 gap-x-3">
+        {/* Left Side: All Room Details & Status Badges (100% VISIBLE) */}
+        <div className="flex items-center flex-wrap gap-2 min-w-0">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+              <Lock className="w-3.5 h-3.5" />
+            </div>
+            <span className="font-mono font-black text-xs sm:text-sm text-white tracking-wider">
               {roomId}
             </span>
             <button
@@ -67,29 +66,29 @@ export const RoomHeader: React.FC = () => {
             >
               {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
+          </div>
 
-            {/* Compact Status Pills */}
-            <div className="hidden xs:flex items-center space-x-1.5 text-[10px] text-slate-300 pl-1 border-l border-white/10">
-              <span className="flex items-center space-x-1 text-emerald-400 font-semibold shrink-0">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                <span>{activeCount}</span>
-              </span>
-              <span className="text-slate-600 font-bold">•</span>
-              <span className={`font-mono flex items-center space-x-0.5 font-semibold shrink-0 ${pingColor}`} title={`Latency: ${latestPing}ms`}>
-                <Wifi className="w-3 h-3" />
-                <span>{latestPing}ms</span>
-              </span>
-              <span className="text-slate-600 font-bold hidden md:inline">•</span>
-              <span className="hidden md:inline-flex text-emerald-400 font-mono items-center space-x-0.5 font-bold bg-emerald-500/10 px-1.5 py-0.2 rounded-full border border-emerald-500/30 shrink-0">
-                <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                <span>E2EE</span>
-              </span>
-            </div>
+          {/* All Status Chips - 100% VISIBLE */}
+          <div className="flex items-center space-x-1.5 text-[10px] text-slate-300">
+            <span className="flex items-center space-x-1 text-emerald-400 font-semibold shrink-0 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+              <span>{activeCount} Online</span>
+            </span>
+
+            <span className={`font-mono flex items-center space-x-1 font-semibold shrink-0 bg-white/5 px-2 py-0.5 rounded-full border border-white/10 ${pingColor}`} title={`WebRTC Latency: ${latestPing}ms`}>
+              <Wifi className="w-3 h-3" />
+              <span>{latestPing}ms</span>
+            </span>
+
+            <span className="text-emerald-400 font-mono flex items-center space-x-1 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 shrink-0">
+              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+              <span>E2EE</span>
+            </span>
           </div>
         </div>
 
-        {/* Right Side: Ultra-Compact Icon Toolbar */}
-        <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
+        {/* Right Side: All Action Toolbar Buttons (100% VISIBLE) */}
+        <div className="flex items-center flex-wrap gap-1.5 shrink-0">
           <PwaInstallPrompt />
           <NotificationCenter />
           <ThemeSelector />
@@ -97,32 +96,33 @@ export const RoomHeader: React.FC = () => {
 
           <button
             onClick={handleStartVideo}
-            className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl transition flex items-center space-x-1 text-xs font-semibold shrink-0 ${
+            className={`px-2.5 py-1.5 rounded-xl transition flex items-center space-x-1 text-xs font-semibold shrink-0 ${
               isVideoCallActive
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10'
+                : 'bg-white/5 hover:bg-white/10 text-slate-200 border border-white/10'
             }`}
             title="P2P Video Call"
           >
-            <Video className="w-4 h-4 text-indigo-400" />
-            <span className="hidden md:inline">Call</span>
+            <Video className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Call</span>
           </button>
 
           <button
             onClick={() => setIsShareOpen(true)}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center space-x-1 shadow transition shrink-0"
+            className="px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center space-x-1 shadow transition shrink-0"
             title="Invite Friends"
           >
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Invite</span>
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Invite</span>
           </button>
 
           <button
             onClick={() => setIsLeaveOpen(true)}
-            className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 border border-white/10 transition shrink-0"
+            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 border border-white/10 transition shrink-0 flex items-center space-x-1"
             title="Leave Room"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">Leave</span>
           </button>
         </div>
       </header>
