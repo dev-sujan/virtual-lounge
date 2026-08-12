@@ -1,25 +1,37 @@
-# 🎮 Virtual Lounge
+# 🎮 Virtual Social Lounge
 
 [![CI/CD Pipeline](https://github.com/dev-sujan/virtual-lounge/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/dev-sujan/virtual-lounge/actions/workflows/ci-cd.yml)
 [![Live Demo](https://img.shields.io/badge/demo-live-brightgreen.svg)](https://dev-sujan.github.io/virtual-lounge/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A real-time, peer-to-peer virtual hangout room where friends can chat, make video calls, listen to synchronized music, and play mini-games together.
+A real-time, peer-to-peer virtual hangout room where friends can chat with advanced mobile touch gestures, make WebRTC video calls, listen to synchronized YouTube music with an audio equalizer & ambient sound mixer, and play interactive mini-games together.
 
-🚀 **Live App**: [https://dev-sujan.github.io/virtual-lounge/](https://dev-sujan.github.io/virtual-lounge/)
+🚀 **Live App**: [https://dev-sujan.github.io/virtual-lounge/](https://dev-sujan.github.io/virtual-lounge/)  
+📖 **Complete User Manual**: [USER_MANUAL.md](USER_MANUAL.md)
 
 ---
 
-## ✨ Features
+## ✨ Features at a Glance
 
-- 📹 **Peer-to-Peer Video Call**: Real-time video & audio streaming powered by WebRTC & PeerJS.
-- 🎵 **Synchronized YouTube Music**: Shared media player queue for listening to music together.
-- 💬 **Instant Chat**: Low-latency room chat with emoji support and session awareness.
-- 🎯 **Interactive Mini-Games**:
-  - ⭕ **Tic-Tac-Toe**
-  - 🟡 **Connect Four**
-  - ✂️ **Rock-Paper-Scissors**
-- 🎨 **Modern Design**: Built with Tailwind CSS v4, smooth animations, and dynamic state management via Zustand.
+- 📱 **Mobile Touch UX & Gestures**:
+  - **Swipe Right to Reply**: Drag message right to attach reply with haptic vibration.
+  - **Press & Hold**: 450ms held opens quick reaction menu & action toolbar.
+  - **Double-Tap Heart**: Double tap message bubble for `❤️` reaction + animated floating heart burst.
+  - **Top Message Safety**: Options automatically position below top messages to prevent header clipping.
+  - **Centered Latest Messages Button**: Centered glassmorphic floating button for quick feed scrolling.
+- 💬 **Advanced Chat Suite**:
+  - **Text-to-Speech (TTS) Reader**: Listen to messages read aloud via Web Speech API.
+  - **Starred / Saved Bookmarks**: Star messages (`Star`) and filter bookmarked items in the `Saved` tab.
+  - **Voice Notes & Speed Toggle**: Record voice notes with live audio waveforms; adjust playback speed (`1x`, `1.5x`, `2x`).
+  - **Interactive Polls & Slash Commands**: `/poll`, `/8ball`, `/dice`, `/coin`, `/shrug`, `/tableflip`, `/unflip`.
+  - **Vanish Mode**: Self-destructing flame messages (`Flame`).
+- 📹 **Peer-to-Peer Video Call**: Real-time video & audio streaming powered by WebRTC & PeerJS with floating draggable bar.
+- 🎵 **Synchronized Music & Audio**:
+  - Shared YouTube media player queue.
+  - 10-Band Graphic Equalizer with audio presets.
+  - Ambient background sound mixer (Rain, Cafe, Ocean Waves, Fireplace, White Noise).
+- 🎯 **Interactive Mini-Games**: Tic-Tac-Toe, Connect Four, Rock-Paper-Scissors, and Music Trivia Challenge.
+- 🎨 **Dynamic Themes**: 6 curated glassmorphic room themes (Cyberpunk, Midnight Velvet, Neon Sunset, Lofi Study, Emerald Forest, Sunset Glow).
 
 ---
 
@@ -63,10 +75,16 @@ A real-time, peer-to-peer virtual hangout room where friends can chat, make vide
 
 ## 📜 Available Scripts
 
-- `npm run dev` - Launches the local development server with Vite HMR
-- `npm run build` - Compiles TypeScript and builds the production bundle
+- `npm run dev` - Launches local development server with Vite HMR
+- `npm run build` - Compiles TypeScript and builds production bundle
 - `npm run lint` - Runs Oxlint to check code quality
-- `npm run preview` - Previews the production build locally
+- `npm run preview` - Previews production build locally
+
+---
+
+## 📄 Documentation
+
+For full feature manuals, touch gesture guides, and CI/CD setup, see [USER_MANUAL.md](USER_MANUAL.md).
 
 ---
 
