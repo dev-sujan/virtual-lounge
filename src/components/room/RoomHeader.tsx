@@ -85,7 +85,7 @@ export const RoomHeader: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Side: Compact Action Toolbar */}
+        {/* Right Side: Ultra-Clean Icon-Only Toolbar */}
         <div className="flex items-center space-x-1 sm:space-x-1.5 shrink-0">
           <PwaInstallPrompt />
           <NotificationCenter />
@@ -94,32 +94,30 @@ export const RoomHeader: React.FC = () => {
 
           <button
             onClick={handleStartVideo}
-            className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl transition flex items-center space-x-1 text-xs font-semibold shrink-0 ${
+            className={`p-2 rounded-xl transition flex items-center justify-center shrink-0 ${
               isVideoCallActive
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                : 'bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10'
+                : 'bg-white/5 hover:bg-white/10 text-indigo-400 hover:text-indigo-300 border border-white/10'
             }`}
-            title="P2P Video Call"
+            title="Start P2P Video Call"
           >
-            <Video className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="hidden sm:inline">Call</span>
+            <Video className="w-4 h-4" />
           </button>
 
           <button
             onClick={() => setIsShareOpen(true)}
-            className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center space-x-1 shadow transition shrink-0"
-            title="Invite Friends"
+            className="p-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white shadow transition shrink-0 flex items-center justify-center"
+            title="Invite Friends & Room Credentials"
           >
-            <Share2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Invite</span>
+            <Share2 className="w-4 h-4" />
           </button>
 
           <button
             onClick={() => setIsLeaveOpen(true)}
-            className="p-1.5 sm:p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 border border-white/10 transition shrink-0"
+            className="p-2 rounded-xl bg-white/5 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 border border-white/10 transition shrink-0 flex items-center justify-center"
             title="Leave Room"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </header>
