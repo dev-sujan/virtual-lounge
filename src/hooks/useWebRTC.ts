@@ -27,15 +27,8 @@ export function useWebRTC() {
 
         if (!isSubscribed) return;
 
-        useRoomStore.getState().setConnectionStatus('connected');
-
-        if (!isHost) {
-          // connectToHost opens a DataChannel to the host peer.
-          // JOIN_REQUEST is sent automatically by setupDataConnection on 'open'.
-          // We do NOT send it here to avoid duplicate JOIN_REQUEST race condition.
-          await peerService.connectToHost(roomId);
-          // Give host time to process join and reply before heartbeat starts
-        } else {
+        if (isHost) {
+          useRoomStore.getState().setConnectionStatus('connected');
           // Host: post welcome system message on first session
           const messages = useChatStore.getState().messages;
           if (messages.length === 0) {
@@ -50,6 +43,9 @@ export function useWebRTC() {
               isSystem: true,
             });
           }
+        } else {
+          // Guest: connect to host. setConnectionStatus('connected') will be set upon receiving JOIN_RESPONSE
+          await peerService.connectToHost(roomId);
         }
       } catch (err) {
         console.error('P2P setup error:', err);

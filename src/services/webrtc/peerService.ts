@@ -196,7 +196,7 @@ class PeerService {
 
     const runReconnect = async () => {
       attempts++;
-      const { isHost, currentUser } = useRoomStore.getState();
+      const { isHost } = useRoomStore.getState();
 
       const hostId = `synclounge-room-${roomId.toLowerCase()}`;
       const activeHostConn = this.connections.get(hostId);
@@ -208,13 +208,9 @@ class PeerService {
       }
 
       console.log(`[P2P] Auto-reconnecting to room "${roomId}" (attempt ${attempts}/${maxAttempts})...`);
+      useRoomStore.getState().setConnectionStatus('connecting');
       const conn = await this.connectToHost(roomId);
-      if (conn && currentUser && conn.open) {
-        const normalizedPassword = (useRoomStore.getState().password || '').trim();
-        this.sendToPeer(conn, 'JOIN_REQUEST', {
-          password: normalizedPassword,
-          user: currentUser,
-        });
+      if (conn && conn.open) {
         if (this.autoReconnectTimer) clearTimeout(this.autoReconnectTimer);
         this.autoReconnectTimer = null;
         return;
