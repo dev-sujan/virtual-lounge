@@ -425,15 +425,15 @@ class PeerService {
 
     const targetPeerIds: string[] = [];
 
-    // Always call the host
+    // Always call the host if we are not the host
     const hostPeerId = `synclounge-room-${roomId.toLowerCase()}`;
     if (hostPeerId !== this.peer.id) {
       targetPeerIds.push(hostPeerId);
     }
 
-    // Also call every other guest in the room
+    // Call every other guest in the room
     peers.forEach((peerUser) => {
-      if (!peerUser.isHost && peerUser.id !== currentUser?.id) {
+      if (peerUser.id !== currentUser?.id) {
         const guestPeerId = `synclounge-${roomId.toLowerCase()}-${peerUser.id.slice(-6)}`;
         if (guestPeerId !== this.peer?.id && !targetPeerIds.includes(guestPeerId)) {
           targetPeerIds.push(guestPeerId);
@@ -441,21 +441,12 @@ class PeerService {
       }
     });
 
-    console.log('[P2P] Calling all peers for video:', targetPeerIds);
+    console.log('[P2P] Calling all peers for video grid:', targetPeerIds);
 
     targetPeerIds.forEach((targetId) => {
-      const existingCall = this.mediaCalls.get(targetId);
-      if (!existingCall || (existingCall as any).open === false) {
-        this.callPeer(targetId, stream);
-      } else {
-        const updated = this.updateLocalStreamTrack(stream, targetId);
-        if (!updated) {
-          this.callPeer(targetId, stream);
-        }
-      }
+      this.callPeer(targetId, stream);
     });
   }
-
 
   private handleIncomingCall(call: MediaConnection) {
     const videoStore = useVideoStore.getState();
@@ -463,12 +454,6 @@ class PeerService {
 
     call.answer(localStream || undefined);
     this.setupMediaCall(call);
-
-    if (localStream) {
-      setTimeout(() => {
-        this.updateLocalStreamTrack(localStream, call.peer);
-      }, 500);
-    }
   }
 
   private setupMediaCall(call: MediaConnection) {
@@ -476,10 +461,15 @@ class PeerService {
 
     call.on('stream', (remoteStream) => {
       console.log('[P2P] Received remote stream from peer:', call.peer, 'tracks:', remoteStream.getTracks().length);
-      const peers = useRoomStore.getState().peers;
-      const peerInfo = peers.find(
-        (p) => call.peer.includes(p.id.slice(-6)) || p.id === call.peer || (p.isHost && call.peer.includes('room-'))
+      const { peers, currentUser } = useRoomStore.getState();
+
+      let peerInfo = peers.find(
+        (p) => call.peer.includes(p.id.slice(-6)) || p.id === call.peer
       );
+
+      if (!peerInfo && call.peer.includes('room-')) {
+        peerInfo = peers.find((p) => p.isHost) || (currentUser?.isHost ? currentUser : undefined);
+      }
 
       const videoStore = useVideoStore.getState();
       videoStore.addRemoteStream({
