@@ -41,24 +41,27 @@ export const AmbientSoundPlayer: React.FC = () => {
     <div className="relative">
       <button
         onClick={() => setShowControls(!showControls)}
-        className={`text-xs px-3 py-1.5 rounded-xl flex items-center space-x-1.5 transition border ${
+        className={`p-2 sm:px-3 sm:py-1.5 rounded-xl flex items-center space-x-1.5 transition border text-xs relative ${
           hasAnyPlaying
-            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-            : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 shadow-sm shadow-indigo-500/20'
+            : 'bg-white/5 text-slate-400 border-white/10 hover:text-white hover:bg-white/10'
         }`}
         title="Ambient Lounge Background Sounds"
       >
-        <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-        <span>Ambiance {hasAnyPlaying ? 'ON' : 'OFF'}</span>
+        <Sliders className={`w-3.5 h-3.5 ${hasAnyPlaying ? 'text-indigo-400 animate-pulse' : 'text-slate-400'}`} />
+        <span className="hidden sm:inline font-medium">Ambiance {hasAnyPlaying ? 'ON' : 'OFF'}</span>
+        {hasAnyPlaying && <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 sm:hidden" />}
       </button>
 
       {showControls && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs sm:hidden"
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm cursor-pointer"
             onClick={() => setShowControls(false)}
           />
-          <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-16 max-sm:w-auto max-sm:max-h-[80dvh] max-sm:overflow-y-auto sm:absolute sm:right-0 sm:top-10 z-50 glass-card p-4 rounded-2xl border border-white/15 shadow-2xl w-64 animate-fadeIn space-y-3">
+          <div className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-16 sm:top-full mt-0 sm:mt-2 z-[70] bg-[#0a0d19] p-4 rounded-2xl border border-white/20 shadow-2xl shadow-black/95 sm:w-64 max-h-[80vh] overflow-y-auto animate-fadeIn space-y-3">
+
+
             <div className="flex items-center justify-between border-b border-white/10 pb-2">
               <span className="text-xs font-bold text-white flex items-center space-x-1.5">
                 <Sliders className="w-4 h-4 text-indigo-400" />

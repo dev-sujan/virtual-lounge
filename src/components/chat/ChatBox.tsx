@@ -732,74 +732,80 @@ export const ChatBox: React.FC = () => {
       }`}
     >
       {/* Header Bar with Search, Media Filters & Vanish Mode Switcher */}
-      <div className="px-4 py-2.5 bg-slate-900/90 border-b border-white/10 flex items-center justify-between z-10 shrink-0">
-        <div className="flex items-center space-x-2">
-          <Sparkles className="w-4 h-4 text-indigo-400" />
-          <span className="text-xs font-bold text-white tracking-wide">P2P Lounge Chat</span>
-          <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-mono px-2 py-0.5 rounded-full border border-indigo-500/30">
+      <div className="px-3.5 py-2 bg-slate-900/90 border-b border-white/10 flex items-center justify-between z-10 shrink-0 gap-2">
+        <div className="flex items-center space-x-2 min-w-0">
+          <div className="w-6 h-6 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 shrink-0">
+            <Sparkles className="w-3.5 h-3.5" />
+          </div>
+          <span className="text-xs sm:text-sm font-bold text-white tracking-wide truncate">P2P Lounge Chat</span>
+          <span className="text-[10px] bg-indigo-500/20 text-indigo-300 font-mono px-2 py-0.5 rounded-full border border-indigo-500/30 whitespace-nowrap shrink-0">
             {messages.length} msgs
           </span>
         </div>
 
-        <div className="flex items-center space-x-1.5">
+        <div className="flex items-center space-x-1.5 shrink-0">
           {/* Vanish Mode Toggle */}
           <button
             onClick={handleToggleVanish}
-            className={`px-2.5 py-1 rounded-xl text-xs font-bold flex items-center space-x-1 transition border ${
+            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center space-x-1.5 transition border whitespace-nowrap shrink-0 ${
               isVanishMode
-                ? 'bg-purple-600/30 text-purple-300 border-purple-400 shadow animate-pulse'
-                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white'
+                ? 'bg-purple-600/30 text-purple-300 border-purple-400 shadow-md animate-pulse'
+                : 'bg-white/5 text-slate-400 border-white/10 hover:text-white hover:bg-white/10'
             }`}
             title="Toggle Vanish Mode (Self-Destructing Messages)"
           >
-            <Flame className="w-3.5 h-3.5 text-purple-400" />
+            <Flame className="w-3.5 h-3.5 text-purple-400 shrink-0" />
             <span>Vanish {isVanishMode ? 'ON' : 'OFF'}</span>
           </button>
 
           <button
             onClick={() => setIsSearching(!isSearching)}
             className={`p-1.5 rounded-lg transition ${
-              isSearching ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-400 hover:text-white'
+              isSearching ? 'bg-indigo-500/20 text-indigo-300' : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
             title="Search Chat"
           >
-            <Search className="w-4 h-4" />
+            <Search className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={exportChatHistory}
-            className="p-1.5 text-slate-400 hover:text-white rounded-lg transition"
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/5 transition"
             title="Export Chat History"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
           </button>
 
           {isHost && messages.length > 0 && (
             <button
               onClick={clearChat}
-              className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg transition"
+              className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-white/5 transition"
               title="Clear Local Feed"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Filter Tabs Bar */}
-      <div className="px-3 py-1.5 bg-slate-950/40 border-b border-white/5 flex items-center space-x-1 overflow-x-auto text-[11px] shrink-0">
+      {/* Filter Tabs Bar - Clean Glass Pills without scrollbar or line wrap */}
+      <div className="px-3 py-1.5 bg-slate-950/60 border-b border-white/10 flex items-center space-x-1.5 overflow-x-auto no-scrollbar text-[11px] shrink-0">
         <button
           onClick={() => setMediaFilter('all')}
-          className={`px-2.5 py-1 rounded-lg font-semibold transition ${
-            mediaFilter === 'all' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          className={`px-2.5 py-1 rounded-xl font-semibold transition whitespace-nowrap shrink-0 ${
+            mediaFilter === 'all'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md border border-indigo-400/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
           All Feed
         </button>
         <button
           onClick={() => setMediaFilter('image')}
-          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
-            mediaFilter === 'image' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          className={`px-2.5 py-1 rounded-xl font-semibold transition whitespace-nowrap shrink-0 flex items-center space-x-1 ${
+            mediaFilter === 'image'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md border border-indigo-400/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
           <ImageIcon className="w-3 h-3" />
@@ -807,8 +813,10 @@ export const ChatBox: React.FC = () => {
         </button>
         <button
           onClick={() => setMediaFilter('audio')}
-          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
-            mediaFilter === 'audio' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          className={`px-2.5 py-1 rounded-xl font-semibold transition whitespace-nowrap shrink-0 flex items-center space-x-1 ${
+            mediaFilter === 'audio'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md border border-indigo-400/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
           <Mic className="w-3 h-3" />
@@ -816,8 +824,10 @@ export const ChatBox: React.FC = () => {
         </button>
         <button
           onClick={() => setMediaFilter('poll')}
-          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
-            mediaFilter === 'poll' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          className={`px-2.5 py-1 rounded-xl font-semibold transition whitespace-nowrap shrink-0 flex items-center space-x-1 ${
+            mediaFilter === 'poll'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md border border-indigo-400/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
           <BarChart2 className="w-3 h-3" />
@@ -825,8 +835,10 @@ export const ChatBox: React.FC = () => {
         </button>
         <button
           onClick={() => setMediaFilter('pinned')}
-          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
-            mediaFilter === 'pinned' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          className={`px-2.5 py-1 rounded-xl font-semibold transition whitespace-nowrap shrink-0 flex items-center space-x-1 ${
+            mediaFilter === 'pinned'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md border border-indigo-400/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
           <Pin className="w-3 h-3" />
@@ -834,8 +846,10 @@ export const ChatBox: React.FC = () => {
         </button>
         <button
           onClick={() => setMediaFilter('starred')}
-          className={`px-2.5 py-1 rounded-lg font-semibold transition flex items-center space-x-1 ${
-            mediaFilter === 'starred' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'
+          className={`px-2.5 py-1 rounded-xl font-semibold transition whitespace-nowrap shrink-0 flex items-center space-x-1 ${
+            mediaFilter === 'starred'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md border border-indigo-400/30'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
           }`}
         >
           <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
@@ -899,12 +913,12 @@ export const ChatBox: React.FC = () => {
       <div
         ref={feedRef}
         onScroll={handleFeedScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-4 relative"
+        className="flex-1 overflow-y-auto p-3 space-y-2 relative"
       >
         {/* Transparent Backdrop to dismiss active popovers on tap outside */}
         {(showEmojiPicker || mobileActiveMsgId) && (
           <div
-            className="fixed inset-0 z-10 bg-black/10 backdrop-blur-xs cursor-pointer"
+            className="fixed inset-0 z-10 bg-black/20 cursor-pointer"
             onClick={() => {
               setShowEmojiPicker(null);
               setMobileActiveMsgId(null);
@@ -932,8 +946,8 @@ export const ChatBox: React.FC = () => {
 
             if (msg.isSystem) {
               return (
-                <div key={msg.id} className="flex justify-center my-2">
-                  <div className="glass-pill px-3 py-1 rounded-full text-[11px] font-medium text-slate-300 bg-white/5 border border-white/10 flex items-center space-x-1.5 shadow">
+                <div key={msg.id} className="flex justify-center my-1.5">
+                  <div className="glass-pill px-3 py-0.5 rounded-full text-[11px] font-medium text-slate-300 bg-white/5 border border-white/10 flex items-center space-x-1.5 shadow">
                     <span>{msg.text}</span>
                   </div>
                 </div>
@@ -947,7 +961,7 @@ export const ChatBox: React.FC = () => {
               >
                 {/* Reply Indicator */}
                 {msg.replyTo && (
-                  <div className="mb-1 text-[11px] text-slate-400 bg-slate-900/60 px-3 py-1 rounded-lg border-l-2 border-indigo-500 max-w-[80%] truncate">
+                  <div className="mb-1 text-[11px] text-slate-400 bg-slate-900/60 px-2.5 py-0.5 rounded-lg border-l-2 border-indigo-500 max-w-[80%] truncate">
                     <span className="font-semibold text-indigo-300">Replying to {msg.replyTo.senderName}: </span>
                     <span>{msg.replyTo.text}</span>
                   </div>
@@ -966,7 +980,7 @@ export const ChatBox: React.FC = () => {
 
                   {!isMe && (
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow mt-0.5"
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[11px] font-bold shrink-0 shadow mt-0.5"
                       style={{ backgroundColor: msg.senderAvatarColor }}
                     >
                       {getInitials(msg.senderName)}
@@ -998,7 +1012,7 @@ export const ChatBox: React.FC = () => {
                       onTouchMove={(e) => handleTouchMove(e, msg)}
                       onTouchEnd={() => handleTouchEnd(msg)}
                       style={{ transform: `translateX(${swipeTranslateMap[msg.id] || 0}px)` }}
-                      className={`p-3 rounded-2xl text-sm relative shadow-md transition-transform duration-75 select-none touch-pan-y ${
+                      className={`px-3 py-1.5 rounded-2xl text-xs sm:text-sm relative shadow-md transition-transform duration-75 select-none touch-pan-y ${
                         msg.isUnsent
                           ? 'bg-slate-900/80 text-slate-400 italic border border-white/10'
                           : msg.isVanish
@@ -1017,7 +1031,7 @@ export const ChatBox: React.FC = () => {
 
                       {/* Pinned Badge */}
                       {msg.isPinned && (
-                        <div className="mb-1.5 flex items-center space-x-1 text-[10px] text-indigo-300 font-bold uppercase tracking-wider">
+                        <div className="mb-1 flex items-center space-x-1 text-[10px] text-indigo-300 font-bold uppercase tracking-wider">
                           <Pin className="w-3 h-3 fill-current" />
                           <span>Pinned Message</span>
                         </div>
@@ -1035,7 +1049,7 @@ export const ChatBox: React.FC = () => {
                       {msg.imageUrl && !msg.isUnsent && (
                         <div
                           onClick={() => setShowImageModal(msg.imageUrl || null)}
-                          className="mb-2 rounded-xl overflow-hidden cursor-pointer relative group/img max-w-xs border border-white/20 shadow-md"
+                          className="mb-1.5 rounded-xl overflow-hidden cursor-pointer relative group/img max-w-xs border border-white/20 shadow-md"
                         >
                           <img src={msg.imageUrl} alt="Attachment" className="w-full h-auto max-h-48 object-cover" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition flex items-center justify-center text-white text-xs space-x-1 font-semibold">
@@ -1047,21 +1061,21 @@ export const ChatBox: React.FC = () => {
 
                       {/* Voice Note Attachment */}
                       {msg.audioUrl && !msg.isUnsent && (
-                        <div className="flex items-center justify-between space-x-3 bg-black/30 p-2.5 rounded-xl border border-white/10 mb-1 min-w-[190px]">
-                          <div className="flex items-center space-x-2.5 overflow-hidden">
+                        <div className="flex items-center justify-between space-x-3 bg-black/30 p-2 rounded-xl border border-white/10 mb-1 min-w-[180px]">
+                          <div className="flex items-center space-x-2 overflow-hidden">
                             <button
                               onClick={() => togglePlayAudio(msg.id, msg.audioUrl)}
-                              className="w-8 h-8 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white flex items-center justify-center shadow transition shrink-0"
+                              className="w-7 h-7 rounded-full bg-indigo-500 hover:bg-indigo-400 text-white flex items-center justify-center shadow transition shrink-0"
                             >
                               {playingAudioId === msg.id ? (
-                                <Pause className="w-4 h-4 fill-current" />
+                                <Pause className="w-3.5 h-3.5 fill-current" />
                               ) : (
-                                <Play className="w-4 h-4 fill-current ml-0.5" />
+                                <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
                               )}
                             </button>
 
                             {/* Animated Waveform Visualizer */}
-                            <div className="flex items-center space-x-1 h-5 shrink-0">
+                            <div className="flex items-center space-x-1 h-4 shrink-0">
                               {[0.4, 0.8, 0.5, 1, 0.6, 0.9, 0.4].map((height, i) => (
                                 <div
                                   key={i}
@@ -1081,7 +1095,7 @@ export const ChatBox: React.FC = () => {
                           {playingAudioId === msg.id && (
                             <button
                               onClick={cycleAudioPlaybackRate}
-                              className="text-[10px] font-mono font-bold bg-white/15 px-2 py-0.5 rounded text-indigo-200 shrink-0 hover:bg-white/25 transition"
+                              className="text-[10px] font-mono font-bold bg-white/15 px-1.5 py-0.5 rounded text-indigo-200 shrink-0 hover:bg-white/25 transition"
                               title="Voice Playback Speed"
                             >
                               {audioPlaybackRate}x
@@ -1092,7 +1106,7 @@ export const ChatBox: React.FC = () => {
 
                       {/* Interactive Chat Poll */}
                       {msg.poll && !msg.isUnsent && (
-                        <div className="space-y-2 mb-2 p-3 bg-black/40 rounded-xl border border-white/10 min-w-[220px]">
+                        <div className="space-y-1.5 mb-1.5 p-2.5 bg-black/40 rounded-xl border border-white/10 min-w-[200px]">
                           <div className="flex items-center justify-between text-xs font-bold text-indigo-300">
                             <span className="flex items-center space-x-1">
                               <BarChart2 className="w-3.5 h-3.5" />
@@ -1100,7 +1114,7 @@ export const ChatBox: React.FC = () => {
                             </span>
                           </div>
 
-                          <div className="space-y-1.5">
+                          <div className="space-y-1">
                             {msg.poll.options.map((opt, idx) => {
                               const totalVotes = msg.poll!.options.reduce((sum, o) => sum + o.votes.length, 0);
                               const pct = totalVotes > 0 ? Math.round((opt.votes.length / totalVotes) * 100) : 0;
@@ -1110,7 +1124,7 @@ export const ChatBox: React.FC = () => {
                                 <button
                                   key={idx}
                                   onClick={() => handleVotePoll(msg.id, idx)}
-                                  className={`w-full p-2 rounded-lg text-xs flex flex-col transition border relative overflow-hidden text-left ${
+                                  className={`w-full p-1.5 rounded-lg text-xs flex flex-col transition border relative overflow-hidden text-left ${
                                     hasVoted
                                       ? 'bg-indigo-500/30 border-indigo-400 text-white font-bold'
                                       : 'bg-white/5 border-white/10 text-slate-200 hover:bg-white/10'
@@ -1135,23 +1149,25 @@ export const ChatBox: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Text content with formatting */}
-                      {!msg.poll && <p className="whitespace-pre-wrap break-words leading-relaxed">{renderFormattedContent(msg.text)}</p>}
-
-                      {/* Timestamp & Read Receipts */}
-                      <div className="flex items-center justify-end space-x-1 mt-1 text-[9px] opacity-75 font-mono">
-                        {msg.isEdited && <span className="italic text-slate-400">(edited)</span>}
-                        <span>{formatTimestamp(msg.timestamp)}</span>
-                        {isMe && !msg.isUnsent && (
-                          <span title={hasBeenReadByPeers ? 'Read by peers' : 'Sent'}>
-                            {hasBeenReadByPeers ? (
-                              <CheckCheck className="w-3 h-3 text-sky-400 inline ml-0.5" />
-                            ) : (
-                              <Check className="w-3 h-3 text-slate-400 inline ml-0.5" />
+                      {/* Text content with inline/flex timestamp for max space utilization */}
+                      {!msg.poll && (
+                        <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-0.5">
+                          <p className="whitespace-pre-wrap break-words leading-snug">{renderFormattedContent(msg.text)}</p>
+                          <div className="flex items-center space-x-1 text-[9px] opacity-75 font-mono shrink-0 ml-auto self-end">
+                            {msg.isEdited && <span className="italic text-slate-400">(edited)</span>}
+                            <span>{formatTimestamp(msg.timestamp)}</span>
+                            {isMe && !msg.isUnsent && (
+                              <span title={hasBeenReadByPeers ? 'Read by peers' : 'Sent'}>
+                                {hasBeenReadByPeers ? (
+                                  <CheckCheck className="w-3 h-3 text-sky-400 inline ml-0.5" />
+                                ) : (
+                                  <Check className="w-3 h-3 text-slate-400 inline ml-0.5" />
+                                )}
+                              </span>
                             )}
-                          </span>
-                        )}
-                      </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Reactions Pill Display */}

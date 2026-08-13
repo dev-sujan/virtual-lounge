@@ -38,10 +38,12 @@ export const ThemeSelector: React.FC = () => {
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs sm:hidden"
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm cursor-pointer"
             onClick={() => setIsOpen(false)}
           />
-          <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-16 max-sm:w-auto max-sm:max-h-[80dvh] max-sm:overflow-y-auto sm:absolute sm:right-0 sm:top-10 z-50 glass-card p-3 rounded-2xl border border-white/15 shadow-2xl w-56 animate-fadeIn space-y-2">
+          <div className="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-full mt-0 sm:mt-2 z-[70] bg-[#0a0d19] p-3 rounded-2xl border border-white/20 shadow-2xl shadow-black/95 w-60 sm:w-56 animate-fadeIn space-y-2">
+
+
             <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/10 mb-1 flex items-center justify-between">
               <span>Lounge Theme</span>
               <Palette className="w-3.5 h-3.5 text-purple-400" />

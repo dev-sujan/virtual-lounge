@@ -62,8 +62,28 @@ export const Lounge: React.FC = () => {
     }
   };
 
+  // Helper to get active peers per navigation tab
+  const getPeersInTab = (tab: LoungeTab) => {
+    const all = currentUser ? [currentUser, ...peers] : peers;
+    return all.filter((p) => {
+      const act = p.currentActivity?.toLowerCase() || '';
+      if (tab === 'music') return act.includes('music') || act.includes('listening') || !act;
+      if (tab === 'chat') return act.includes('chat');
+      if (tab === 'games') return act.includes('game') || act.includes('playing');
+      if (tab === 'members') return true;
+      return false;
+    });
+  };
+
+  const navItems: { id: LoungeTab; label: string; icon: React.FC<{ className?: string }> }[] = [
+    { id: 'music', label: 'Shared Queue', icon: Music },
+    { id: 'chat', label: 'Private Chat', icon: MessageSquare },
+    { id: 'games', label: 'Multiplayer Games', icon: Gamepad2 },
+    { id: 'members', label: 'Peers', icon: Users },
+  ];
+
   return (
-    <div className="min-h-screen bg-[#07080c] text-white flex flex-col justify-between pb-20 sm:pb-8 relative">
+    <div className="min-h-screen bg-[#07080c] text-white flex flex-col justify-between pb-28 sm:pb-8 relative">
       {/* Real-time Synchronization Toast Notification Pop-ups */}
       <ToastContainer />
 
@@ -81,52 +101,48 @@ export const Lounge: React.FC = () => {
           <YouTubePlayer onOpenAddModal={() => setIsAddModalOpen(true)} />
         </div>
 
-        {/* Desktop Tab Selector - Transparent P2P Glassmorphic Active Tab */}
-        <div className="hidden sm:flex bg-slate-900/60 backdrop-blur-xl p-1.5 rounded-2xl border border-white/10 mb-6 shadow-xl">
-          <button
-            onClick={() => handleTabChange('music')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition ${
-              activeTab === 'music'
-                ? 'bg-white/15 backdrop-blur-md border border-white/25 text-white shadow-lg'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Music className="w-4 h-4" />
-            <span>Shared Queue</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('chat')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition ${
-              activeTab === 'chat'
-                ? 'bg-white/15 backdrop-blur-md border border-white/25 text-white shadow-lg'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>Private Chat</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('games')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition ${
-              activeTab === 'games'
-                ? 'bg-white/15 backdrop-blur-md border border-white/25 text-white shadow-lg'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Gamepad2 className="w-4 h-4" />
-            <span>Multiplayer Games</span>
-          </button>
-          <button
-            onClick={() => handleTabChange('members')}
-            className={`flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 transition ${
-              activeTab === 'members'
-                ? 'bg-white/15 backdrop-blur-md border border-white/25 text-white shadow-lg'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Peers ({(peers?.length || 0) + 1})</span>
-          </button>
+        {/* Desktop Tab Selector - Peer Active Navigation Bubble Bar */}
+        <div className="hidden sm:flex bg-slate-900/80 backdrop-blur-2xl p-1.5 rounded-3xl border border-white/15 mb-6 shadow-2xl shadow-indigo-950/40 relative">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const tabPeers = getPeersInTab(item.id);
+            const isActive = activeTab === item.id;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleTabChange(item.id)}
+                className={`flex-1 py-3 px-3 rounded-2xl text-xs font-bold flex items-center justify-center space-x-2 transition-all duration-300 relative group ${
+                  isActive
+                    ? 'bg-gradient-to-r from-indigo-600/30 to-purple-600/30 backdrop-blur-md border border-indigo-400/50 text-white shadow-lg shadow-indigo-500/25 scale-[1.02]'
+                    : 'text-slate-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <Icon className={`w-4 h-4 transition-transform duration-300 ${isActive ? 'scale-110 text-indigo-300' : ''}`} />
+                <span>{item.label}</span>
+
+                {/* Peer Active Navigation Bubble Badge */}
+                {tabPeers.length > 0 && (
+                  <div className="flex items-center space-x-1 ml-1.5 bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-400/30 shadow-sm">
+                    {/* Mini Avatar Overlaps */}
+                    <div className="flex items-center -space-x-1.5">
+                      {tabPeers.slice(0, 2).map((p) => (
+                        <div
+                          key={p.id}
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white border border-slate-900 shadow-sm"
+                          style={{ backgroundColor: p.avatarColor }}
+                          title={p.displayName}
+                        >
+                          {getInitials(p.displayName)}
+                        </div>
+                      ))}
+                    </div>
+                    <span className="text-[10px] text-indigo-300 font-mono font-extrabold">{tabPeers.length}</span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Tab Content Display */}
@@ -221,37 +237,57 @@ export const Lounge: React.FC = () => {
       {/* Floating Draggable WebRTC Video Call Window */}
       <FloatingVideoCall />
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-950/90 backdrop-blur-xl border-t border-white/10 px-4 py-2 flex justify-around items-center">
+      {/* Mobile Floating Bottom Navigation Bar with Peer Active Navigation Bubbles */}
+      <nav className="sm:hidden fixed bottom-3 left-3 right-3 z-40 bg-slate-950/95 backdrop-blur-2xl border border-white/15 rounded-3xl pt-2 pb-1.5 px-2 flex justify-around items-center shadow-2xl shadow-indigo-950/70">
         <button
           onClick={() => handleTabChange('music')}
-          className={`flex flex-col items-center space-y-0.5 p-1 transition ${
-            activeTab === 'music' ? 'text-indigo-400 font-bold' : 'text-slate-400'
+          className={`px-3 py-1.5 rounded-2xl flex flex-col items-center space-y-0.5 transition-all duration-300 ${
+            activeTab === 'music'
+              ? 'bg-gradient-to-b from-indigo-500/30 to-purple-500/20 text-indigo-300 font-bold border border-indigo-500/40 shadow-md shadow-indigo-500/30 scale-105'
+              : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Music className="w-5 h-5" />
+          <div className="relative">
+            <Music className="w-5 h-5" />
+            {getPeersInTab('music').length > 0 && (
+              <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] rounded-full bg-indigo-600 border border-indigo-300 text-white text-[9px] font-extrabold flex items-center justify-center px-1 shadow-md">
+                {getPeersInTab('music').length}
+              </span>
+            )}
+          </div>
           <span className="text-[10px]">Queue</span>
         </button>
 
         <button
           onClick={() => handleTabChange('chat')}
-          className={`flex flex-col items-center space-y-0.5 p-1 transition ${
-            activeTab === 'chat' ? 'text-indigo-400 font-bold' : 'text-slate-400'
+          className={`px-3 py-1.5 rounded-2xl flex flex-col items-center space-y-0.5 transition-all duration-300 ${
+            activeTab === 'chat'
+              ? 'bg-gradient-to-b from-indigo-500/30 to-purple-500/20 text-indigo-300 font-bold border border-indigo-500/40 shadow-md shadow-indigo-500/30 scale-105'
+              : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <MessageSquare className="w-5 h-5" />
+          <div className="relative">
+            <MessageSquare className="w-5 h-5" />
+            {getPeersInTab('chat').length > 0 && (
+              <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] rounded-full bg-indigo-600 border border-indigo-300 text-white text-[9px] font-extrabold flex items-center justify-center px-1 shadow-md">
+                {getPeersInTab('chat').length}
+              </span>
+            )}
+          </div>
           <span className="text-[10px]">Chat</span>
         </button>
 
+        {/* Center Floating Video Call Control Bubble */}
         <button
           onClick={isVideoCallActive ? toggleMic : handleStartVideoCall}
-          className={`w-11 h-11 -mt-4 rounded-full flex items-center justify-center shadow-lg transition transform active:scale-95 border border-white/20 ${
+          className={`w-12 h-12 -mt-6 rounded-full flex items-center justify-center shadow-xl shadow-indigo-600/40 border border-white/30 transition transform active:scale-90 hover:scale-105 ${
             isVideoCallActive
               ? isMicOn
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'
-                : 'bg-rose-500 text-white'
-              : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white ring-4 ring-emerald-500/30 animate-pulse'
+                : 'bg-rose-500 text-white ring-4 ring-rose-500/30'
+              : 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-400 hover:to-purple-500'
           }`}
+          title={isVideoCallActive ? (isMicOn ? 'Mute Mic' : 'Unmute Mic') : 'Start Video Call'}
         >
           {isVideoCallActive ? (
             isMicOn ? <Mic className="w-5 h-5" /> : <MicOff className="w-5 h-5" />
@@ -262,21 +298,39 @@ export const Lounge: React.FC = () => {
 
         <button
           onClick={() => handleTabChange('games')}
-          className={`flex flex-col items-center space-y-0.5 p-1 transition ${
-            activeTab === 'games' ? 'text-indigo-400 font-bold' : 'text-slate-400'
+          className={`px-3 py-1.5 rounded-2xl flex flex-col items-center space-y-0.5 transition-all duration-300 ${
+            activeTab === 'games'
+              ? 'bg-gradient-to-b from-indigo-500/30 to-purple-500/20 text-indigo-300 font-bold border border-indigo-500/40 shadow-md shadow-indigo-500/30 scale-105'
+              : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Gamepad2 className="w-5 h-5" />
+          <div className="relative">
+            <Gamepad2 className="w-5 h-5" />
+            {getPeersInTab('games').length > 0 && (
+              <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] rounded-full bg-indigo-600 border border-indigo-300 text-white text-[9px] font-extrabold flex items-center justify-center px-1 shadow-md">
+                {getPeersInTab('games').length}
+              </span>
+            )}
+          </div>
           <span className="text-[10px]">Games</span>
         </button>
 
         <button
           onClick={() => handleTabChange('members')}
-          className={`flex flex-col items-center space-y-0.5 p-1 transition ${
-            activeTab === 'members' ? 'text-indigo-400 font-bold' : 'text-slate-400'
+          className={`px-3 py-1.5 rounded-2xl flex flex-col items-center space-y-0.5 transition-all duration-300 ${
+            activeTab === 'members'
+              ? 'bg-gradient-to-b from-indigo-500/30 to-purple-500/20 text-indigo-300 font-bold border border-indigo-500/40 shadow-md shadow-indigo-500/30 scale-105'
+              : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          <Users className="w-5 h-5" />
+          <div className="relative">
+            <Users className="w-5 h-5" />
+            {getPeersInTab('members').length > 0 && (
+              <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-[16px] rounded-full bg-indigo-600 border border-indigo-300 text-white text-[9px] font-extrabold flex items-center justify-center px-1 shadow-md">
+                {getPeersInTab('members').length}
+              </span>
+            )}
+          </div>
           <span className="text-[10px]">Peers</span>
         </button>
       </nav>

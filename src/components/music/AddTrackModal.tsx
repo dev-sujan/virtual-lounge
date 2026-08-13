@@ -140,7 +140,8 @@ export const AddTrackModal: React.FC<AddTrackModalProps> = ({ isOpen, onClose })
     : PRESET_LOUNGE_TRACKS.filter((t) => t.genre === selectedGenre);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+
       <div className="glass-card w-full max-w-2xl rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[90dvh] sm:max-h-[85vh] relative">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between bg-slate-900/40">

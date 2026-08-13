@@ -55,10 +55,12 @@ export const NotificationCenter: React.FC = () => {
       {isOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs sm:hidden"
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm cursor-pointer"
             onClick={() => setIsOpen(false)}
           />
-          <div className="max-sm:fixed max-sm:left-3 max-sm:right-3 max-sm:top-16 max-sm:w-auto max-sm:max-h-[80dvh] max-sm:overflow-y-auto sm:absolute sm:right-0 sm:top-11 z-50 glass-card p-4 rounded-2xl border border-white/15 shadow-2xl w-80 sm:w-96 animate-fadeIn space-y-3">
+          <div className="fixed sm:absolute left-3 right-3 sm:left-auto sm:right-0 top-16 sm:top-full mt-0 sm:mt-2 z-[70] bg-[#0a0d19] p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border border-white/20 shadow-2xl shadow-black/95 sm:w-96 max-h-[80vh] sm:max-h-[75vh] overflow-y-auto animate-fadeIn space-y-3">
+
+
             {/* Header */}
             <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
               <div className="flex items-center space-x-2">

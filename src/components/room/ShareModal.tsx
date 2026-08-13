@@ -33,7 +33,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+
       <div className="glass-card w-full max-w-md rounded-2xl p-4 sm:p-6 border border-white/10 shadow-2xl relative max-h-[90dvh] overflow-y-auto">
         <button
           onClick={onClose}

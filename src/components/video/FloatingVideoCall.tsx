@@ -145,7 +145,8 @@ export const FloatingVideoCall: React.FC = () => {
           ? { top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }
           : { top: `${position.y}px`, left: `${position.x}px` }
       }
-      className={`fixed z-50 transition-all duration-150 ease-out select-none max-w-[calc(100vw-24px)] ${
+      className={`fixed z-[80] transition-all duration-150 ease-out select-none max-w-[calc(100vw-24px)] ${
+
         isFullscreen
           ? 'bg-black/95 flex flex-col p-4'
           : isScreenSharing || pinnedStreamId || remoteStreams.length > 0

@@ -30,7 +30,8 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fadeIn">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+
       <div className="glass-card w-full max-w-sm rounded-2xl p-5 sm:p-6 border border-white/10 shadow-2xl text-center max-h-[90dvh] overflow-y-auto">
         <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto mb-4">
           <AlertTriangle className="w-6 h-6" />
