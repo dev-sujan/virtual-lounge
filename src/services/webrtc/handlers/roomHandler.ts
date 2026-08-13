@@ -19,6 +19,7 @@ export const handlePong: SyncMessageHandler = (payload, senderId, _ctx) => {
 };
 
 export const handleJoinRequest: SyncMessageHandler = (payload, senderId, ctx) => {
+  if (!payload || !payload.user) return;
   const { password, currentUser, isHost } = useRoomStore.getState();
   const toastStore = useToastStore.getState();
   

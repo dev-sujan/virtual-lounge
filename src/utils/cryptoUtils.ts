@@ -116,11 +116,7 @@ export async function decryptPayload(data: any, secretKey: string): Promise<any>
   }
 
   try {
-    const saltBase64 = data.salt;
-    if (!saltBase64) {
-      throw new Error('Missing salt in encrypted payload');
-    }
-
+    const saltBase64 = data.salt || arrayBufferToBase64(new TextEncoder().encode(`synclounge_salt_${secretKey}`));
     const key = await getEncryptionKey(secretKey, saltBase64);
     if (!key) return null;
 

@@ -44,6 +44,11 @@ export const dispatchMessage = async (
   senderId: string,
   ctx: SyncMessageContext
 ): Promise<void> => {
+  if (payload === null || payload === undefined) {
+    console.warn(`[P2P] Ignored null or undecryptable payload for message type: ${type}`);
+    return;
+  }
+
   const handler = handlers.get(type);
   if (handler) {
     await handler(payload, senderId, ctx);
