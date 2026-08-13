@@ -37,7 +37,7 @@ export const Lounge: React.FC = () => {
         useVideoStore.setState({ isMicOn: false, isCameraOn: false });
         const { peerService } = await import('../services/webrtc/peerService');
         peerService.callAllPeers(stream);
-      } catch (err) {
+      } catch {
         alert('Camera / Microphone permission required.');
       }
     }

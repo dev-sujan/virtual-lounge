@@ -36,7 +36,8 @@ export function playMessageSound() {
 
     osc.start(now);
     osc.stop(now + 0.25);
-  } catch (e) {
+  } catch {
+
     // Ignore audio autoplay restrictions
   }
 }
@@ -62,7 +63,8 @@ export function playReactionSound() {
 
     osc.start(now);
     osc.stop(now + 0.15);
-  } catch (e) {
+  } catch {
+
     // Ignore audio restrictions
   }
 }
@@ -88,7 +90,8 @@ export function playSendSound() {
 
     osc.start(now);
     osc.stop(now + 0.15);
-  } catch (e) {
+  } catch {
+
     // Ignore audio restrictions
   }
 }
@@ -114,7 +117,8 @@ export function playPlaySound() {
 
     osc.start(now);
     osc.stop(now + 0.2);
-  } catch (e) {}
+  } catch {
+}
 }
 
 export function playPauseSound() {
@@ -138,7 +142,8 @@ export function playPauseSound() {
 
     osc.start(now);
     osc.stop(now + 0.2);
-  } catch (e) {}
+  } catch {
+}
 }
 
 export function playCallSound() {
@@ -167,6 +172,7 @@ export function playCallSound() {
     osc2.start(now);
     osc1.stop(now + 0.4);
     osc2.stop(now + 0.4);
-  } catch (e) {}
+  } catch {
+}
 }
 

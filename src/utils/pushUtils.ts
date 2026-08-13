@@ -49,6 +49,6 @@ export function setAppBadgeCount(count: number): void {
       } else {
         (navigator as any).clearAppBadge();
       }
-    } catch (e) {}
+    } catch {}
   }
 }

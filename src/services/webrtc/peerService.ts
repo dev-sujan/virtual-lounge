@@ -76,7 +76,7 @@ class PeerService {
                   timestamp: Date.now(),
                   payload: { roomId },
                 });
-              } catch (e) {}
+              } catch {}
             }
             const knownPeers = useRoomStore.getState().peers;
             knownPeers.forEach((p) => {
@@ -156,7 +156,7 @@ class PeerService {
         this.setupDataConnection(conn);
         conn.on('open', () => resolve(conn));
         setTimeout(() => resolve(conn), 3000);
-      } catch (err) {
+      } catch {
         resolve(null);
       }
     });

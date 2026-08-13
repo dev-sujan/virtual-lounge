@@ -49,7 +49,7 @@ export const AddTrackModal: React.FC<AddTrackModalProps> = ({ isOpen, onClose })
             setError('No videos found for this search. Try pasting a YouTube link.');
           }
         }
-      } catch (err) {
+      } catch {
         setError('Failed to fetch search results.');
       } finally {
         setLoading(false);
