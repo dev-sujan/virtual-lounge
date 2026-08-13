@@ -136,9 +136,13 @@ class PeerService {
 
     const targetId = hostPeerId || `synclounge-room-${roomId.toLowerCase()}`;
 
-    // Already connected to host — reuse
+    // Already connected to host & open — reuse existing connection
     if (this.connections.has(targetId)) {
-      return Promise.resolve(this.connections.get(targetId) || null);
+      const existing = this.connections.get(targetId);
+      if (existing && existing.open) {
+        return Promise.resolve(existing);
+      }
+      this.connections.delete(targetId);
     }
 
     return new Promise((resolve) => {
@@ -162,7 +166,14 @@ class PeerService {
   }
 
   public connectToPeer(peerId: string): Promise<DataConnection | null> {
-    if (!this.peer || this.connections.has(peerId)) return Promise.resolve(null);
+    if (!this.peer) return Promise.resolve(null);
+    if (this.connections.has(peerId)) {
+      const existing = this.connections.get(peerId);
+      if (existing && existing.open) {
+        return Promise.resolve(existing);
+      }
+      this.connections.delete(peerId);
+    }
     return new Promise((resolve) => {
       try {
         let resolved = false;
@@ -196,7 +207,7 @@ class PeerService {
       const conn = await this.connectToHost(roomId);
       if (conn && currentUser) {
         const normalizedPassword = (useRoomStore.getState().password || '').trim();
-        this.broadcast('JOIN_REQUEST', {
+        this.sendToPeer(conn, 'JOIN_REQUEST', {
           password: normalizedPassword,
           user: currentUser,
         });

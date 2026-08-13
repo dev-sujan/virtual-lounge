@@ -134,14 +134,21 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
             const state = useRoomStore.getState();
             // Only host or solo user auto-advances on song end to prevent duplicate skips across peers
             if (state.isHost || state.peers.length === 0) {
+              const finishedTrack = useMusicStore.getState().currentTrack;
               skipTrack('next');
               const { currentTrack, queue } = useMusicStore.getState();
               peerService.broadcast('QUEUE_CHANGE', {
                 queue,
                 currentTrack,
                 action: 'finished playing',
-                item: currentTrack,
+                item: finishedTrack,
                 user: state.currentUser?.displayName || 'System',
+              });
+              peerService.broadcast('PLAYBACK_CHANGE', {
+                isPlaying: true,
+                currentTime: 0,
+                lastUpdated: Date.now(),
+                updatedBy: state.currentUser?.displayName || 'Host',
               });
             }
           }

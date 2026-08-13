@@ -115,12 +115,11 @@ export const handleRoomStateSync: SyncMessageHandler = (payload, _senderId, _ctx
       const localExpected = localPlayback.currentTime + elapsed;
       const syncTime = playback.currentTime +
         (playback.isPlaying ? (Date.now() - playback.lastUpdated) / 1000 : 0);
-      if (Math.abs(localExpected - syncTime) > 3) {
-        useMusicStore.getState().setPlaybackState(playback);
-      } else {
+      if (Math.abs(localExpected - syncTime) > 3 || localPlayback.isPlaying !== playback.isPlaying) {
         useMusicStore.getState().setPlaybackState({
-          isPlaying: playback.isPlaying,
-          updatedBy: playback.updatedBy,
+          ...playback,
+          currentTime: syncTime,
+          lastUpdated: Date.now(),
         });
       }
     }
