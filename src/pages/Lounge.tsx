@@ -11,8 +11,8 @@ import { FloatingVideoCall } from '../components/video/FloatingVideoCall';
 import { ToastContainer } from '../components/common/ToastContainer';
 import { TermsModal } from '../components/common/TermsModal';
 import { useVideoStore } from '../stores/useVideoStore';
-import { getInitials } from '../utils/avatarUtils';
 import { Music, MessageSquare, Gamepad2, Users, Mic, MicOff, Video } from 'lucide-react';
+import { Avatar } from '../components/common/Avatar';
 
 type LoungeTab = 'music' | 'chat' | 'games' | 'members';
 
@@ -127,14 +127,13 @@ export const Lounge: React.FC = () => {
                     {/* Mini Avatar Overlaps */}
                     <div className="flex items-center -space-x-1.5">
                       {tabPeers.slice(0, 2).map((p) => (
-                        <div
+                        <Avatar
                           key={p.id}
-                          className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white border border-slate-900 shadow-sm"
-                          style={{ backgroundColor: p.avatarColor }}
-                          title={p.displayName}
-                        >
-                          {getInitials(p.displayName)}
-                        </div>
+                          name={p.displayName}
+                          color={p.avatarColor}
+                          size="sm"
+                          className="!w-4 !h-4 !text-[8px] border border-slate-900 shadow-sm"
+                        />
                       ))}
                     </div>
                     <span className="text-[10px] text-indigo-300 font-mono font-extrabold">{tabPeers.length}</span>
@@ -168,12 +167,12 @@ export const Lounge: React.FC = () => {
                 {currentUser && (
                   <div className="glass-card p-4 rounded-2xl border border-indigo-500/30 bg-indigo-950/20 flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow"
-                        style={{ backgroundColor: currentUser.avatarColor }}
-                      >
-                        {getInitials(currentUser.displayName)}
-                      </div>
+                      <Avatar
+                        name={currentUser.displayName}
+                        color={currentUser.avatarColor}
+                        size="lg"
+                        className="shadow"
+                      />
                       <div>
                         <h4 className="text-sm font-bold text-white flex items-center space-x-1.5">
                           <span>{currentUser.displayName}</span>
@@ -190,12 +189,12 @@ export const Lounge: React.FC = () => {
                 {peers.map((peer) => (
                   <div key={peer.id} className="glass-card p-4 rounded-2xl border border-white/10 flex items-center justify-between group">
                     <div className="flex items-center space-x-3 overflow-hidden">
-                      <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow shrink-0"
-                        style={{ backgroundColor: peer.avatarColor }}
-                      >
-                        {getInitials(peer.displayName)}
-                      </div>
+                      <Avatar
+                        name={peer.displayName}
+                        color={peer.avatarColor}
+                        size="lg"
+                        className="shadow shrink-0"
+                      />
                       <div className="overflow-hidden">
                         <h4 className="text-sm font-bold text-white flex items-center space-x-1.5 truncate">
                           <span className="truncate">{peer.displayName}</span>

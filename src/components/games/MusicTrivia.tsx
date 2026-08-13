@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRoomStore } from '../../stores/useRoomStore';
 import { peerService } from '../../services/webrtc/peerService';
-import { getInitials } from '../../utils/avatarUtils';
 import { Trophy, Clock, CheckCircle2, XCircle, RotateCcw, Award } from 'lucide-react';
+import { Avatar } from '../common/Avatar';
 
 
 export interface TriviaQuestion {
@@ -312,12 +312,12 @@ export const MusicTrivia: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               >
                 <div className="flex items-center space-x-3">
                   <span className="font-mono text-xs font-bold w-5">#{idx + 1}</span>
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow"
-                    style={{ backgroundColor: user!.avatarColor }}
-                  >
-                    {getInitials(user!.displayName)}
-                  </div>
+                  <Avatar
+                    name={user!.displayName}
+                    color={user!.avatarColor}
+                    size="md"
+                    className="shadow"
+                  />
                   <span className="text-xs font-bold text-white">{user!.displayName}</span>
                 </div>
 

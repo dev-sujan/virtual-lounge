@@ -8,9 +8,9 @@ import { PwaInstallPrompt } from '../common/PwaInstallPrompt';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
-import { copyToClipboard } from '../../utils/clipboardUtils';
-import { getInitials } from '../../utils/avatarUtils';
-import { Lock, Share2, LogOut, Video, Copy, Check, ShieldCheck, Wifi } from 'lucide-react';
+import { Lock, Share2, LogOut, Video, ShieldCheck, Wifi } from 'lucide-react';
+import { CopyButton } from '../common/CopyButton';
+import { Avatar } from '../common/Avatar';
 
 
 export const RoomHeader: React.FC = () => {
@@ -19,7 +19,6 @@ export const RoomHeader: React.FC = () => {
 
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [isLeaveOpen, setIsLeaveOpen] = useState(false);
-  const [copiedId, setCopiedId] = useState(false);
 
   const allParticipants = currentUser ? [currentUser, ...peers] : peers;
   const activeCount = allParticipants.length;
@@ -43,13 +42,7 @@ export const RoomHeader: React.FC = () => {
     }
   };
 
-  const handleCopyId = async () => {
-    if (!roomId) return;
-    const directLink = buildDirectInviteLink(roomId, password || '');
-    await copyToClipboard(directLink);
-    setCopiedId(true);
-    setTimeout(() => setCopiedId(false), 2000);
-  };
+  const directLink = roomId ? buildDirectInviteLink(roomId, password || '') : '';
 
   return (
     <>
@@ -65,13 +58,11 @@ export const RoomHeader: React.FC = () => {
             <span className="font-mono font-black text-xs sm:text-sm text-white tracking-wider sm:tracking-widest truncate">
               {roomId}
             </span>
-            <button
-              onClick={handleCopyId}
-              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition shrink-0"
-              title="Copy Direct Invite Link"
-            >
-              {copiedId ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            </button>
+            <CopyButton
+              textToCopy={directLink}
+              className="!p-1 !bg-transparent hover:!bg-white/10 !border-none !text-slate-400 hover:!text-white shrink-0"
+              label=""
+            />
           </div>
 
           {/* Header Action Buttons */}
@@ -117,15 +108,14 @@ export const RoomHeader: React.FC = () => {
             {/* Peer Avatar Bubble Stack */}
             <div className="flex items-center -space-x-2 shrink-0">
               {allParticipants.slice(0, 3).map((p, idx) => (
-                <div
+                <Avatar
                   key={p.id || idx}
-                  className="w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 border-slate-900 flex items-center justify-center text-white text-[8px] sm:text-[9px] font-bold shadow relative shrink-0"
-                  style={{ backgroundColor: p.avatarColor }}
-                  title={`${p.displayName} ${p.isHost ? '(Host)' : ''}`}
-                >
-                  {getInitials(p.displayName)}
-                  <span className="absolute bottom-0 right-0 w-1.5 h-1.5 rounded-full bg-emerald-400 ring-1 ring-slate-900" />
-                </div>
+                  name={`${p.displayName} ${p.isHost ? '(Host)' : ''}`}
+                  color={p.avatarColor}
+                  size="sm"
+                  isOnline={true}
+                  className="border-2 border-slate-900 shadow"
+                />
               ))}
               {allParticipants.length > 3 && (
                 <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-indigo-950 border-2 border-slate-900 flex items-center justify-center text-indigo-300 text-[8px] sm:text-[9px] font-bold shrink-0">

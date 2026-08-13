@@ -17,6 +17,8 @@ const THEME_OPTIONS: ThemeOption[] = [
   { id: 'emerald', name: 'Deep Emerald', gradient: 'from-emerald-500 to-teal-700' },
 ];
 
+import { Popover } from './Popover';
+
 export const ThemeSelector: React.FC = () => {
   const { theme, setTheme } = useThemeStore();
   const [isOpen, setIsOpen] = useState(false);
@@ -26,59 +28,52 @@ export const ThemeSelector: React.FC = () => {
   }, [theme]);
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition flex items-center space-x-1"
-        title="Switch Lounge Theme"
-      >
-        <Palette className="w-4 h-4 text-purple-400" />
-      </button>
+    <Popover
+      isOpen={isOpen}
+      onClose={() => setIsOpen(false)}
+      className="p-3 w-60 sm:w-56 space-y-2"
+      trigger={
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white transition flex items-center space-x-1"
+          title="Switch Lounge Theme"
+        >
+          <Palette className="w-4 h-4 text-purple-400" />
+        </button>
+      }
+    >
+      <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/10 mb-1 flex items-center justify-between">
+        <span>Lounge Theme</span>
+        <Palette className="w-3.5 h-3.5 text-purple-400" />
+      </div>
 
-      {isOpen && (
-        <>
-          <div
-            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm cursor-pointer"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-full mt-0 sm:mt-2 z-[70] bg-[#0a0d19] p-3 rounded-2xl border border-white/20 shadow-2xl shadow-black/95 w-60 sm:w-56 animate-fadeIn space-y-2">
+      <div className="space-y-1">
+        {THEME_OPTIONS.map((opt) => {
+          const isSelected = theme === opt.id;
 
+          return (
+            <button
+              key={opt.id}
+              onClick={() => {
+                setTheme(opt.id);
+                setIsOpen(false);
+              }}
+              className={`w-full p-2 rounded-xl text-xs font-semibold flex items-center justify-between transition border ${
+                isSelected
+                  ? 'bg-white/15 border-white/30 text-white shadow'
+                  : 'hover:bg-white/5 border-transparent text-slate-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2.5">
+                <span className={`w-3.5 h-3.5 rounded-full bg-gradient-to-r ${opt.gradient} shadow-sm shrink-0`} />
+                <span>{opt.name}</span>
+              </div>
 
-            <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/10 mb-1 flex items-center justify-between">
-              <span>Lounge Theme</span>
-              <Palette className="w-3.5 h-3.5 text-purple-400" />
-            </div>
-
-            <div className="space-y-1">
-              {THEME_OPTIONS.map((opt) => {
-                const isSelected = theme === opt.id;
-
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => {
-                      setTheme(opt.id);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full p-2 rounded-xl text-xs font-semibold flex items-center justify-between transition border ${
-                      isSelected
-                        ? 'bg-white/15 border-white/30 text-white shadow'
-                        : 'hover:bg-white/5 border-transparent text-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <span className={`w-3.5 h-3.5 rounded-full bg-gradient-to-r ${opt.gradient} shadow-sm shrink-0`} />
-                      <span>{opt.name}</span>
-                    </div>
-
-                    {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+              {isSelected && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
+    </Popover>
   );
 };

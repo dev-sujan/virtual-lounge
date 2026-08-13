@@ -2,21 +2,36 @@ import type { RoomSession } from '../types';
 
 const SESSION_KEY = 'synclounge_session_v1';
 
+export function getRandomBytes(size: number): Uint8Array {
+  const array = new Uint8Array(size);
+  if (typeof window !== 'undefined' && window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(array);
+  } else {
+    for (let i = 0; i < size; i++) array[i] = Math.floor(Math.random() * 256);
+  }
+  return array;
+}
+
 export function generateRoomId(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = getRandomBytes(6);
   let result = '';
   for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
+    result += chars.charAt(bytes[i] % chars.length);
   }
   return result;
 }
 
 export function generatePassword(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  const bytes = getRandomBytes(4);
+  const num = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+  return (100000 + (num % 900000)).toString();
 }
 
 export function generateUserId(): string {
-  return 'usr_' + Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
+  const bytes = getRandomBytes(8);
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return 'usr_' + hex;
 }
 
 export const AVATAR_COLORS = [
@@ -31,7 +46,8 @@ export const AVATAR_COLORS = [
 ];
 
 export function getRandomAvatarColor(): string {
-  return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+  const bytes = getRandomBytes(1);
+  return AVATAR_COLORS[bytes[0] % AVATAR_COLORS.length];
 }
 
 export function saveSessionToStorage(session: RoomSession): void {

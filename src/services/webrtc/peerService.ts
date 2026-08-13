@@ -1,15 +1,11 @@
 import Peer from 'peerjs';
 import type { DataConnection, MediaConnection } from 'peerjs';
-import type { SyncMessagePayload, SyncEventType, User } from '../../types';
+import type { SyncMessagePayload, SyncEventType } from '../../types';
 import { useRoomStore } from '../../stores/useRoomStore';
-import { useMusicStore } from '../../stores/useMusicStore';
-import { useChatStore } from '../../stores/useChatStore';
-import { useGameStore } from '../../stores/useGameStore';
 import { useVideoStore } from '../../stores/useVideoStore';
 import { useToastStore } from '../../stores/useToastStore';
-import { playMessageSound, playReactionSound, playPlaySound, playPauseSound, playCallSound, playAirhornSound, playScratchSound, playVictorySound } from '../../utils/soundUtils';
-
 import { encryptPayload, decryptPayload } from '../../utils/cryptoUtils';
+import { dispatchMessage } from './handlers/messageRouter';
 
 type MessageHandler = (msg: SyncMessagePayload) => void;
 
@@ -20,7 +16,7 @@ class PeerService {
   private broadcastChannel: BroadcastChannel | null = null;
   private messageHandlers: MessageHandler[] = [];
   private isInitialized = false;
-  private autoReconnectTimer: any = null;
+  private autoReconnectTimer: ReturnType<typeof setInterval> | null = null;
 
   public init(roomId: string, userId: string, isHost: boolean): Promise<string> {
     // Return existing active peer if already initializing or connected
@@ -29,8 +25,13 @@ class PeerService {
         return Promise.resolve(this.peer.id);
       }
       return new Promise((resolve) => {
-        this.peer?.once('open', (id) => resolve(id));
-        setTimeout(() => resolve(this.peer?.id || `synclounge-${roomId.toLowerCase()}-${userId.slice(-6)}`), 3000);
+        let resolved = false;
+        this.peer?.once('open', (id) => {
+          if (!resolved) { resolved = true; resolve(id); }
+        });
+        setTimeout(() => {
+          if (!resolved) { resolved = true; resolve(this.peer?.id || `synclounge-${roomId.toLowerCase()}-${userId.slice(-6)}`); }
+        }, 3000);
       });
     }
 
@@ -142,14 +143,17 @@ class PeerService {
 
     return new Promise((resolve) => {
       try {
+        let resolved = false;
         const conn = this.peer!.connect(targetId, { reliable: true });
         this.setupDataConnection(conn);
         conn.on('open', () => {
           console.log('[P2P] Connected to host peer:', targetId);
-          resolve(conn);
+          if (!resolved) { resolved = true; resolve(conn); }
         });
         // Fallback timeout if ICE negotiation takes longer than expected
-        setTimeout(() => resolve(this.connections.get(targetId) || conn), 5000);
+        setTimeout(() => {
+          if (!resolved) { resolved = true; resolve(this.connections.get(targetId) || conn); }
+        }, 5000);
       } catch (err) {
         console.error('[P2P] Error connecting to host:', err);
         resolve(null);
@@ -161,10 +165,11 @@ class PeerService {
     if (!this.peer || this.connections.has(peerId)) return Promise.resolve(null);
     return new Promise((resolve) => {
       try {
+        let resolved = false;
         const conn = this.peer!.connect(peerId, { reliable: true });
         this.setupDataConnection(conn);
-        conn.on('open', () => resolve(conn));
-        setTimeout(() => resolve(conn), 3000);
+        conn.on('open', () => { if (!resolved) { resolved = true; resolve(conn); } });
+        setTimeout(() => { if (!resolved) { resolved = true; resolve(conn); } }, 3000);
       } catch {
         resolve(null);
       }
@@ -182,7 +187,7 @@ class PeerService {
       const { isHost, currentUser } = useRoomStore.getState();
 
       if (isHost || this.connections.size > 0 || attempts > 20) {
-        clearInterval(this.autoReconnectTimer);
+        if (this.autoReconnectTimer) clearInterval(this.autoReconnectTimer);
         this.autoReconnectTimer = null;
         return;
       }
@@ -321,8 +326,7 @@ class PeerService {
   private async handleIncomingMessage(msg: SyncMessagePayload) {
     if (!msg || !msg.type) return;
 
-    const { password, currentUser, isHost, roomId } = useRoomStore.getState();
-    const toastStore = useToastStore.getState();
+    const { password, roomId } = useRoomStore.getState();
 
     // Decrypt payload using AES-256-GCM E2EE secret key
     const normalizedPassword = (password || '').trim();
@@ -330,435 +334,7 @@ class PeerService {
     const secretKey = `synclounge_${activeRoomId}_${normalizedPassword}`;
     const payload = await decryptPayload(msg.payload, secretKey);
 
-    switch (msg.type) {
-      case 'PING': {
-        this.broadcast('PONG', { pingTimestamp: payload.timestamp });
-        break;
-      }
-
-      case 'PONG': {
-        if (payload.pingTimestamp) {
-          const pingMs = Math.max(1, Math.round(Date.now() - payload.pingTimestamp));
-          useRoomStore.getState().setPeerPing(msg.senderId, pingMs);
-        }
-        break;
-      }
-
-      case 'JOIN_REQUEST': {
-        const { password: reqPassword, user: reqUser } = payload;
-        if (password && reqPassword !== password) {
-          // Send rejection directly to the requesting peer's connection
-          const rejectingConn = this.connections.get(msg.senderId) ||
-            Array.from(this.connections.values()).find(c => c.open);
-          if (rejectingConn && rejectingConn.open) {
-            this.sendToPeer(rejectingConn, 'JOIN_RESPONSE', {
-              targetUserId: reqUser.id,
-              success: false,
-              error: 'Invalid password',
-            });
-          }
-          return;
-        }
-
-        useRoomStore.getState().addPeer(reqUser);
-        toastStore.addToast({
-          category: 'info',
-          title: `${reqUser.displayName} joined the lounge`,
-          message: 'Real-time E2E encrypted peer connected',
-        });
-
-        useChatStore.getState().addMessage({
-          id: 'sys_' + Date.now(),
-          senderId: 'system',
-          senderName: 'System',
-          senderAvatarColor: '#6366f1',
-          text: `👋 ${reqUser.displayName} joined the lounge`,
-          timestamp: Date.now(),
-          reactions: {},
-          isSystem: true,
-        });
-
-        if (isHost) {
-          // Find the DataConnection for this specific joining peer and send response directly
-          // Also broadcast so other already-connected peers learn about the new member
-          const joiningConn = this.connections.get(msg.senderId) ||
-            Array.from(this.connections.values()).find(c => c.open);
-
-          const joinResponsePayload = {
-            targetUserId: reqUser.id,
-            success: true,
-            roomState: {
-              queue: useMusicStore.getState().queue,
-              currentTrack: useMusicStore.getState().currentTrack,
-              playback: useMusicStore.getState().playback,
-              repeatMode: useMusicStore.getState().repeatMode,
-              shuffleMode: useMusicStore.getState().shuffleMode,
-              chatMessages: useChatStore.getState().messages,
-              peers: [...useRoomStore.getState().peers, currentUser],
-            },
-          };
-
-          if (joiningConn && joiningConn.open) {
-            this.sendToPeer(joiningConn, 'JOIN_RESPONSE', joinResponsePayload);
-          } else {
-            // Fallback: broadcast to all connected peers
-            this.broadcast('JOIN_RESPONSE', joinResponsePayload);
-          }
-
-          // If a video call is already active, tell all peers (including new one) to pull streams
-          // so the new peer automatically joins the ongoing video call
-          const videoStore = useVideoStore.getState();
-          if (videoStore.isVideoCallActive && this.peer) {
-            // Notify the new peer to pull streams from host
-            setTimeout(() => {
-              this.broadcast('PULL_PEER_STREAM', {
-                targetUserId: 'all',
-                requesterPeerId: this.peer?.id,
-              });
-            }, 1500); // Small delay to let JOIN_RESPONSE be processed first
-          }
-        }
-        break;
-      }
-
-      case 'HOST_ANNOUNCE': {
-        const { roomId: annRoomId } = payload;
-        const currentRoomId = useRoomStore.getState().roomId;
-        if (!isHost && currentRoomId && annRoomId && annRoomId.toUpperCase() === currentRoomId.toUpperCase()) {
-          console.log('[P2P] Host re-announced room presence. Reconnecting...');
-          // connectToHost will trigger setupDataConnection which sends JOIN_REQUEST on open
-          this.connectToHost(currentRoomId);
-        }
-        break;
-      }
-
-      case 'ROOM_STATE_SYNC': {
-        if (!isHost) {
-          const { queue, currentTrack, playback, repeatMode, shuffleMode, chatMessages, peers } = payload;
-          if (queue) useMusicStore.getState().setQueue(queue);
-          if (currentTrack !== undefined) useMusicStore.getState().setCurrentTrack(currentTrack);
-          if (playback) {
-            const localPlayback = useMusicStore.getState().playback;
-            // Only sync playback time if diverged by more than 3 seconds to prevent jitter
-            const elapsed = localPlayback.isPlaying
-              ? (Date.now() - localPlayback.lastUpdated) / 1000
-              : 0;
-            const localExpected = localPlayback.currentTime + elapsed;
-            const syncTime = playback.currentTime +
-              (playback.isPlaying ? (Date.now() - playback.lastUpdated) / 1000 : 0);
-            if (Math.abs(localExpected - syncTime) > 3) {
-              useMusicStore.getState().setPlaybackState(playback);
-            } else {
-              // Sync only play/pause state, not time
-              useMusicStore.getState().setPlaybackState({
-                isPlaying: playback.isPlaying,
-                updatedBy: playback.updatedBy,
-              });
-            }
-          }
-          if (repeatMode) useMusicStore.getState().setRepeatMode(repeatMode);
-          if (shuffleMode !== undefined) useMusicStore.getState().setShuffleMode(shuffleMode);
-          if (chatMessages) useChatStore.getState().setMessages(chatMessages);
-          if (peers && currentUser) {
-            const filteredPeers = peers.filter((p: User) => p.id !== currentUser.id);
-            useRoomStore.getState().setPeers(filteredPeers);
-          }
-        }
-        break;
-      }
-
-      case 'JOIN_RESPONSE': {
-        const { targetUserId, success, error, roomState } = payload;
-        if (currentUser && targetUserId === currentUser.id) {
-          if (!success) {
-            useRoomStore.getState().setConnectionStatus('error', error || 'Room join rejected');
-          } else if (roomState) {
-            if (roomState.queue) useMusicStore.getState().setQueue(roomState.queue);
-            if (roomState.currentTrack) useMusicStore.getState().setCurrentTrack(roomState.currentTrack);
-            if (roomState.playback) useMusicStore.getState().setPlaybackState(roomState.playback);
-            if (roomState.chatMessages) useChatStore.getState().setMessages(roomState.chatMessages);
-            if (roomState.peers) {
-              const filteredPeers = roomState.peers.filter((p: User) => p.id !== currentUser.id);
-              useRoomStore.getState().setPeers(filteredPeers);
-
-              // MESH: Connect directly to all existing guests (not just host)
-              // so guest-to-guest messages work without host relay
-              const { roomId: currentRoomId } = useRoomStore.getState();
-              if (currentRoomId) {
-                filteredPeers.forEach((existingPeer: User) => {
-                  if (!existingPeer.isHost) {
-                    const guestPeerId = `synclounge-${currentRoomId.toLowerCase()}-${existingPeer.id.slice(-6)}`;
-                    // Connect to existing guest peer (setupDataConnection won't re-send JOIN_REQUEST since we're not host)
-                    if (!this.connections.has(guestPeerId)) {
-                      this.connectToPeer(guestPeerId);
-                    }
-                  }
-                });
-              }
-            }
-          }
-        }
-        break;
-      }
-
-      case 'PLAYBACK_CHANGE': {
-        const updates = payload;
-        useMusicStore.getState().setPlaybackState(updates);
-
-        if (updates.updatedBy && updates.updatedBy !== currentUser?.displayName) {
-          if (updates.isPlaying !== undefined) {
-            if (updates.isPlaying) {
-              playPlaySound();
-              toastStore.addToast({
-                category: 'music',
-                title: '▶️ Music Resumed',
-                message: `${updates.updatedBy} started music playback`,
-              });
-            } else {
-              playPauseSound();
-              toastStore.addToast({
-                category: 'music',
-                title: '⏸️ Music Paused',
-                message: `${updates.updatedBy} paused music playback`,
-              });
-            }
-          }
-        }
-        break;
-      }
-
-      case 'QUEUE_CHANGE': {
-        const { queue, currentTrack, action, item, user } = payload;
-        if (queue) useMusicStore.getState().setQueue(queue);
-        if (currentTrack !== undefined) useMusicStore.getState().setCurrentTrack(currentTrack);
-
-        if (action && item && user && user !== currentUser?.displayName) {
-          toastStore.addToast({
-            category: 'music',
-            title: `🎵 Music Queue Updated`,
-            message: `${user} ${action} "${item.title}"`,
-          });
-
-          useChatStore.getState().addMessage({
-            id: 'sys_' + Date.now(),
-            senderId: 'system',
-            senderName: 'System',
-            senderAvatarColor: '#8b5cf6',
-            text: `🎵 ${user} ${action} "${item.title}"`,
-            timestamp: Date.now(),
-            reactions: {},
-            isSystem: true,
-          });
-        }
-        break;
-      }
-
-      case 'SKIP_VOTE_CHANGE': {
-        const { votes } = payload;
-        if (votes) useMusicStore.getState().setSkipVotes(votes);
-        break;
-      }
-
-
-
-      case 'MUSIC_REACTION': {
-        const { emoji } = payload;
-        if (emoji) {
-          useMusicStore.getState().triggerReaction(emoji);
-        }
-        break;
-      }
-
-      case 'DJ_SOUND_FX': {
-        const { fxType, userName } = payload;
-        if (fxType === 'airhorn') playAirhornSound();
-        else if (fxType === 'scratch') playScratchSound();
-        else if (fxType === 'victory') playVictorySound();
-
-        toastStore.addToast({
-          category: 'info',
-          title: `🎧 DJ FX Triggered`,
-          message: `${userName || 'A member'} played ${fxType === 'airhorn' ? '🎺 Airhorn' : fxType === 'scratch' ? '🎧 Vinyl Scratch' : '🏆 Victory Fanfare'}!`,
-        });
-        break;
-      }
-
-
-      case 'CHAT_MESSAGE': {
-
-        useChatStore.getState().addMessage(payload);
-        playMessageSound();
-        if (payload.senderName && payload.senderName !== currentUser?.displayName) {
-          toastStore.addToast({
-            category: 'info',
-            title: `💬 New message from ${payload.senderName}`,
-            message: payload.text,
-          });
-        }
-        break;
-      }
-
-      case 'CHAT_REACTION': {
-        const { msgId, emoji, userId } = payload;
-        useChatStore.getState().addReaction(msgId, emoji, userId);
-        playReactionSound();
-        break;
-      }
-
-
-      case 'CHAT_POLL_VOTE': {
-        const { msgId, optionIndex, userId } = payload;
-        useChatStore.getState().votePollOption(msgId, optionIndex, userId);
-        break;
-      }
-
-      case 'CHAT_PIN_TOGGLE': {
-        const { msgId } = payload;
-        useChatStore.getState().togglePinMessage(msgId);
-        break;
-      }
-
-      case 'CHAT_DELETE': {
-        useChatStore.getState().deleteMessage(payload.msgId);
-        break;
-      }
-
-      case 'CHAT_EDIT': {
-        const { msgId, newText } = payload;
-        useChatStore.getState().editMessage(msgId, newText);
-        break;
-      }
-
-      case 'CHAT_UNSEND': {
-        const { msgId } = payload;
-        useChatStore.getState().unsendMessage(msgId);
-        break;
-      }
-
-      case 'CHAT_READ_RECEIPT': {
-        const { userId } = payload;
-        useChatStore.getState().markMessagesRead(userId);
-        break;
-      }
-
-      case 'VANISH_MODE_TOGGLE': {
-        const { enabled } = payload;
-        useChatStore.getState().toggleVanishMode(enabled);
-        break;
-      }
-
-      case 'TYPING_INDICATOR': {
-        const { userId, name, isTyping } = payload;
-        useChatStore.getState().setTypingUser(userId, name, isTyping);
-        break;
-      }
-
-
-      case 'GAME_STATE_CHANGE': {
-        const { activeGame, gameType, state } = payload;
-        const gameStore = useGameStore.getState();
-        if (activeGame !== undefined) {
-          gameStore.setActiveGame(activeGame);
-        }
-        if (gameType === 'tictactoe' && state) {
-          gameStore.updateTicTacToe(state);
-        } else if (gameType === 'rps' && state) {
-          gameStore.updateRPS(state);
-        } else if (gameType === 'connectfour' && state) {
-          gameStore.updateConnectFour(state);
-        } else if (gameType === 'trivia' && state) {
-          gameStore.updateTrivia(state);
-        }
-        break;
-      }
-
-
-      case 'PEER_PRESENCE_UPDATE': {
-        const { user } = payload;
-        if (user) {
-          useRoomStore.getState().addPeer(user);
-        }
-        break;
-      }
-
-      case 'MEDIA_STATUS_CHANGE': {
-        const { userId, userName, isMicOn, isCameraOn } = payload;
-        useVideoStore.getState().updateRemoteStatusByUserId(userId, {
-          ...(isMicOn !== undefined && { isMicOn }),
-          ...(isCameraOn !== undefined && { isCameraOn }),
-        });
-
-        playCallSound();
-
-        const toastStore = useToastStore.getState();
-        if (isMicOn !== undefined) {
-          toastStore.addToast({
-            category: 'media',
-            title: `${userName || 'Peer'} ${isMicOn ? 'unmuted' : 'muted'} microphone`,
-            icon: isMicOn ? 'mic-on' : 'mic-off',
-          });
-        }
-        if (isCameraOn !== undefined) {
-          toastStore.addToast({
-            category: 'media',
-            title: `${userName || 'Peer'} turned ${isCameraOn ? 'on' : 'off'} camera`,
-            icon: isCameraOn ? 'video-on' : 'video-off',
-          });
-        }
-        break;
-      }
-
-      case 'PULL_PEER_STREAM': {
-        const { targetUserId, requesterPeerId } = payload;
-        const currentUserId = useRoomStore.getState().currentUser?.id;
-        if (currentUserId && (targetUserId === currentUserId || targetUserId === 'all')) {
-          console.log('[P2P] Peer requested stream pull, re-initiating calls to all peers');
-          const videoStore = useVideoStore.getState();
-          let streamToUse = videoStore.localStream;
-          if (!streamToUse) {
-            try {
-              streamToUse = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-              videoStore.setLocalStream(streamToUse);
-            } catch {}
-          }
-          if (streamToUse) {
-            // Call all peers so the new joiner gets streams from everyone
-            this.callAllPeers(streamToUse);
-            // Also specifically call the requester in case they're not in peers list yet
-            if (requesterPeerId && !this.mediaCalls.has(requesterPeerId)) {
-              this.callPeer(requesterPeerId, streamToUse);
-            }
-          }
-        }
-        break;
-      }
-
-
-
-      case 'LEAVE_ROOM': {
-        const { userId, userName } = payload;
-
-        useRoomStore.getState().removePeer(userId);
-        useToastStore.getState().addToast({
-          category: 'warning',
-          title: `${userName || 'A user'} left the lounge`,
-        });
-        useChatStore.getState().addMessage({
-          id: 'sys_' + Date.now(),
-          senderId: 'system',
-          senderName: 'System',
-          senderAvatarColor: '#f43f5e',
-          text: `🚪 ${userName} left the room`,
-          timestamp: Date.now(),
-          reactions: {},
-          isSystem: true,
-        });
-        break;
-      }
-
-      default:
-        break;
-    }
+    await dispatchMessage(msg.type, payload, msg.senderId, { peerService: this });
 
     // HOST RELAY: If this node is the host and message came from a guest,
     // forward the original encrypted wire message to all other connected peers.
@@ -957,16 +533,20 @@ class PeerService {
   }
 
   public destroy() {
+    if (this.autoReconnectTimer) {
+      clearInterval(this.autoReconnectTimer);
+      this.autoReconnectTimer = null;
+    }
+    this.messageHandlers = [];
+
     this.connections.forEach((conn) => conn.close());
     this.connections.clear();
 
     this.mediaCalls.forEach((call) => call.close());
     this.mediaCalls.clear();
 
-    if (this.broadcastChannel) {
-      this.broadcastChannel.close();
-      this.broadcastChannel = null;
-    }
+    this.broadcastChannel?.close();
+    this.broadcastChannel = null;
 
     if (this.peer) {
       this.peer.destroy();
