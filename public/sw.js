@@ -36,6 +36,9 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
+  // Only cache HTTP / HTTPS requests. Ignore chrome-extension://, moz-extension://, file:// etc.
+  if (!url.protocol.startsWith('http')) return;
+
   // Skip caching external WebRTC / PeerJS signaling requests
   if (url.origin.includes('peerjs') || url.origin.includes('stun') || url.origin.includes('youtube')) {
     return;
@@ -44,10 +47,10 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
+            cache.put(event.request, responseToCache).catch(() => {});
           });
         }
         return networkResponse;

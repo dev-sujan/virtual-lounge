@@ -3,24 +3,13 @@ import { useMusicStore } from '../../stores/useMusicStore';
 import { useRoomStore } from '../../stores/useRoomStore';
 import { useToastStore } from '../../stores/useToastStore';
 import { peerService } from '../../services/webrtc/peerService';
-import { formatTime } from '../../utils/youtubeUtils';
-import { AudioEqualizer } from './AudioEqualizer';
-
+import { NowPlayingHeader } from './NowPlayingHeader';
+import { MusicPlayerControls } from './MusicPlayerControls';
 
 import {
-  Play,
-  Pause,
-  SkipForward,
-  SkipBack,
-  Volume2,
-  VolumeX,
-  Shuffle,
-  Repeat,
   Plus,
-  FastForward,
   Maximize2,
   Minimize2,
-  Flame,
 } from 'lucide-react';
 
 
@@ -259,43 +248,43 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
       playerRef.current.seekTo(newTime, true);
     }
 
-    if (currentUser) {
-      const updates = {
-        currentTime: newTime,
-        isPlaying: playback.isPlaying,
-        updatedBy: currentUser.displayName,
-        lastUpdated: Date.now(),
-      };
-      setPlaybackState(updates);
-      peerService.broadcast('PLAYBACK_CHANGE', updates);
-    }
+    const updates = {
+      currentTime: newTime,
+      lastUpdated: Date.now(),
+      updatedBy: currentUser?.displayName || 'System',
+    };
+
+    setPlaybackState(updates);
+    peerService.broadcast('PLAYBACK_CHANGE', updates);
 
     setTimeout(() => {
       isInternalSeeking.current = false;
-    }, 300);
+    }, 500);
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const vol = parseInt(e.target.value, 10);
+    const newVol = parseInt(e.target.value, 10);
+    setPlaybackState({ volume: newVol, isMuted: newVol === 0 });
     if (playerRef.current && playerRef.current.setVolume) {
-      playerRef.current.setVolume(vol);
+      playerRef.current.setVolume(newVol);
     }
-    setPlaybackState({ volume: vol, isMuted: vol === 0 });
   };
 
   const handleToggleMute = () => {
-    const newMute = !playback.isMuted;
+    const newMuted = !playback.isMuted;
+    setPlaybackState({ isMuted: newMuted });
     if (playerRef.current) {
-      if (newMute) playerRef.current.mute();
+      if (newMuted) playerRef.current.mute();
       else playerRef.current.unMute();
     }
-    setPlaybackState({ isMuted: newMute });
   };
 
   const handleCycleSpeed = () => {
     const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
-    const nextSpeed = PLAYBACK_SPEEDS[(currentIndex + 1) % PLAYBACK_SPEEDS.length];
+    const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length;
+    const nextSpeed = PLAYBACK_SPEEDS[nextIndex];
     setPlaybackSpeed(nextSpeed);
+
     if (playerRef.current && playerRef.current.setPlaybackRate) {
       playerRef.current.setPlaybackRate(nextSpeed);
     }
@@ -429,158 +418,34 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
         <div className="p-4 sm:p-5 bg-slate-900/80 backdrop-blur-xl">
           {currentTrack ? (
             <div>
-              {/* Title & Emoji Reactions Row */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                <div className="overflow-hidden">
-                  <h2 className="text-base sm:text-lg font-bold text-white truncate">{currentTrack.title}</h2>
-                  <p className="text-xs text-indigo-300 font-medium truncate">{currentTrack.author}</p>
-                </div>
+              <NowPlayingHeader
+                currentTrack={currentTrack}
+                reactionEmojis={REACTION_EMOJIS}
+                onSendEmojiReaction={handleSendEmojiReaction}
+              />
 
-                {/* Floating Reaction Bar */}
-                <div className="flex items-center space-x-1 bg-slate-950/60 px-2 py-1 rounded-2xl border border-white/10 shrink-0 self-start sm:self-auto">
-                  {REACTION_EMOJIS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => handleSendEmojiReaction(emoji)}
-                      className="p-1 hover:scale-125 transform transition text-sm"
-                      title={`Send ${emoji} reaction`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Progress Slider */}
-              <div className="space-y-1 mb-4">
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  value={localTime}
-                  onChange={handleSeek}
-                  className="custom-slider w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                />
-                <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                  <span>{formatTime(localTime)}</span>
-                  <span>{formatTime(duration)}</span>
-                </div>
-              </div>
-
-              {/* Main Controls Row */}
-              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
-                {/* Mode Toggles */}
-                <div className="flex items-center space-x-1 sm:space-x-2">
-                  <button
-                    onClick={toggleShuffle}
-                    className={`p-2 rounded-xl transition ${
-                      shuffleMode
-                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                    title="Shuffle Queue"
-                  >
-                    <Shuffle className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setRepeatMode(repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off')
-                    }
-                    className={`p-2 rounded-xl transition relative ${
-                      repeatMode !== 'off'
-                        ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                    title={`Repeat: ${repeatMode}`}
-                  >
-                    <Repeat className="w-4 h-4" />
-                    {repeatMode === 'one' && (
-                      <span className="absolute -top-1 -right-1 text-[9px] font-bold bg-indigo-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center">
-                        1
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={handleCycleSpeed}
-                    className="p-1.5 rounded-xl text-xs font-mono font-bold bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 transition flex items-center space-x-1"
-                    title="Change Playback Speed"
-                  >
-                    <FastForward className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{playbackSpeed}x</span>
-                  </button>
-
-                  {/* Audio Equalizer & Sound Effects Deck */}
-                  <AudioEqualizer />
-
-                </div>
-
-                {/* Play / Skip Buttons */}
-                <div className="flex items-center space-x-3">
-                  <button
-                    onClick={() => skipTrack('prev')}
-                    className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition"
-                    title="Previous Song"
-                  >
-                    <SkipBack className="w-5 h-5" />
-                  </button>
-
-                  <button
-                    onClick={handleTogglePlay}
-                    className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white flex items-center justify-center shadow-lg shadow-indigo-500/30 transform active:scale-95 transition-all"
-                    title={playback.isPlaying ? 'Pause' : 'Play'}
-                  >
-                    {playback.isPlaying ? (
-                      <Pause className="w-6 h-6 fill-current" />
-                    ) : (
-                      <Play className="w-6 h-6 fill-current translate-x-0.5" />
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => skipTrack('next')}
-                    className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-full transition"
-                    title="Next Song"
-                  >
-                    <SkipForward className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Vote to Skip & Volume */}
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={handleVoteSkip}
-                    className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition border ${
-                      hasUserVotedSkip
-                        ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
-                        : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
-                    }`}
-                    title="Vote to skip current song with lounge members"
-                  >
-                    <Flame className={`w-3.5 h-3.5 ${hasUserVotedSkip ? 'text-rose-400 fill-current' : 'text-slate-400'}`} />
-                    <span>Skip ({skipVotes.length}/{skipVotesNeeded})</span>
-                  </button>
-
-                  <div className="hidden sm:flex items-center space-x-2">
-                    <button onClick={handleToggleMute} className="text-slate-400 hover:text-white">
-                      {playback.isMuted || playback.volume === 0 ? (
-                        <VolumeX className="w-4 h-4 text-rose-400" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
-                    </button>
-                    <input
-                      type="range"
-                      min={0}
-                      max={100}
-                      value={playback.isMuted ? 0 : playback.volume}
-                      onChange={handleVolumeChange}
-                      className="w-16 accent-indigo-500 bg-white/10 h-1 rounded cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
+              <MusicPlayerControls
+                playback={playback}
+                localTime={localTime}
+                duration={duration}
+                repeatMode={repeatMode}
+                shuffleMode={shuffleMode}
+                playbackSpeed={playbackSpeed}
+                skipVotesCount={skipVotes.length}
+                skipVotesNeeded={skipVotesNeeded}
+                hasUserVotedSkip={!!hasUserVotedSkip}
+                onSeek={handleSeek}
+                onTogglePlay={handleTogglePlay}
+                onSkipTrack={skipTrack}
+                onToggleShuffle={toggleShuffle}
+                onCycleRepeatMode={() =>
+                  setRepeatMode(repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off')
+                }
+                onCycleSpeed={handleCycleSpeed}
+                onVoteSkip={handleVoteSkip}
+                onToggleMute={handleToggleMute}
+                onVolumeChange={handleVolumeChange}
+              />
             </div>
           ) : (
             <div className="py-2 text-center text-slate-400 text-sm">
