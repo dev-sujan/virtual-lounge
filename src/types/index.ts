@@ -160,7 +160,9 @@ export type SyncEventType =
   | 'ROOM_STATE_SYNC'
   | 'HOST_ANNOUNCE'
   | 'PING'
-  | 'PONG';
+  | 'PONG'
+  | 'DJ_SOUND_FX';
+
 
 
 

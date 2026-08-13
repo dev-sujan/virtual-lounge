@@ -3,7 +3,9 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useRoomStore } from '../../stores/useRoomStore';
 import { peerService } from '../../services/webrtc/peerService';
 import confetti from 'canvas-confetti';
+import { playVictorySound } from '../../utils/soundUtils';
 import { RefreshCw } from 'lucide-react';
+
 
 const WINNING_COMBOS = [
   [0, 1, 2],
@@ -40,7 +42,9 @@ export const TicTacToe: React.FC = () => {
       if (newBoard[a] && newBoard[a] === newBoard[b] && newBoard[a] === newBoard[c]) {
         winner = currentUser.id;
         winningLine = combo;
+        playVictorySound();
         confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
+
         break;
       }
     }

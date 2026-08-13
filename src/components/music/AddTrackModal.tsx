@@ -29,7 +29,24 @@ export const AddTrackModal: React.FC<AddTrackModalProps> = ({ isOpen, onClose })
   const { addToast } = useToastStore();
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
     if (!query.trim()) {
+
       setSearchResults([]);
       return;
     }
@@ -140,9 +157,15 @@ export const AddTrackModal: React.FC<AddTrackModalProps> = ({ isOpen, onClose })
     : PRESET_LOUNGE_TRACKS.filter((t) => t.genre === selectedGenre);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card w-full max-w-2xl rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[90dvh] sm:max-h-[85vh] relative"
+      >
 
-      <div className="glass-card w-full max-w-2xl rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[90dvh] sm:max-h-[85vh] relative">
         {/* Header */}
         <div className="p-4 sm:p-6 border-b border-white/10 flex items-center justify-between bg-slate-900/40">
           <div className="flex items-center space-x-2.5 sm:space-x-3 overflow-hidden">

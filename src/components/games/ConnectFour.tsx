@@ -3,6 +3,8 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useRoomStore } from '../../stores/useRoomStore';
 import { peerService } from '../../services/webrtc/peerService';
 import confetti from 'canvas-confetti';
+import { playVictorySound } from '../../utils/soundUtils';
+
 import { RefreshCw } from 'lucide-react';
 
 export const ConnectFour: React.FC = () => {
@@ -35,8 +37,10 @@ export const ConnectFour: React.FC = () => {
     let winner: string | null = null;
     if (checkConnect4Win(newBoard, color)) {
       winner = currentUser.id;
+      playVictorySound();
       confetti({ particleCount: 100, spread: 70, origin: { y: 0.7 } });
     }
+
 
     const nextTurn = otherPeer ? otherPeer.id : currentUser.id;
 

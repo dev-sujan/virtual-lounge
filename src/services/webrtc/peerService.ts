@@ -7,7 +7,8 @@ import { useChatStore } from '../../stores/useChatStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useVideoStore } from '../../stores/useVideoStore';
 import { useToastStore } from '../../stores/useToastStore';
-import { playMessageSound, playReactionSound, playPlaySound, playPauseSound, playCallSound } from '../../utils/soundUtils';
+import { playMessageSound, playReactionSound, playPlaySound, playPauseSound, playCallSound, playAirhornSound, playScratchSound, playVictorySound } from '../../utils/soundUtils';
+
 import { encryptPayload, decryptPayload } from '../../utils/cryptoUtils';
 
 type MessageHandler = (msg: SyncMessagePayload) => void;
@@ -22,15 +23,23 @@ class PeerService {
   private autoReconnectTimer: any = null;
 
   public init(roomId: string, userId: string, isHost: boolean): Promise<string> {
-    // Allow re-init if peer was destroyed or disconnected
-    if (this.isInitialized && this.peer && !this.peer.destroyed) {
-      return Promise.resolve(this.peer.id);
+    // Return existing active peer if already initializing or connected
+    if (this.peer && !this.peer.destroyed) {
+      if (this.isInitialized) {
+        return Promise.resolve(this.peer.id);
+      }
+      return new Promise((resolve) => {
+        this.peer?.once('open', (id) => resolve(id));
+        setTimeout(() => resolve(this.peer?.id || `synclounge-${roomId.toLowerCase()}-${userId.slice(-6)}`), 3000);
+      });
     }
 
-    // Clean up any stale state before re-initializing
     if (this.peer) {
-      this.destroy();
+      try {
+        this.destroy();
+      } catch {}
     }
+
 
     return new Promise((resolve) => {
       try {
@@ -559,6 +568,21 @@ class PeerService {
         }
         break;
       }
+
+      case 'DJ_SOUND_FX': {
+        const { fxType, userName } = payload;
+        if (fxType === 'airhorn') playAirhornSound();
+        else if (fxType === 'scratch') playScratchSound();
+        else if (fxType === 'victory') playVictorySound();
+
+        toastStore.addToast({
+          category: 'info',
+          title: `🎧 DJ FX Triggered`,
+          message: `${userName || 'A member'} played ${fxType === 'airhorn' ? '🎺 Airhorn' : fxType === 'scratch' ? '🎧 Vinyl Scratch' : '🏆 Victory Fanfare'}!`,
+        });
+        break;
+      }
+
 
       case 'CHAT_MESSAGE': {
 

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Copy, Check, Eye, EyeOff, Share2, Link, Zap, QrCode } from 'lucide-react';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -12,33 +13,69 @@ interface ShareModalProps {
 export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password, onClose }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [copiedDirectLink, setCopiedDirectLink] = useState(false);
+  const [copiedRoomId, setCopiedRoomId] = useState(false);
+  const [copiedPasscode, setCopiedPasscode] = useState(false);
   const [copiedFullMsg, setCopiedFullMsg] = useState(false);
   const [activeTab, setActiveTab] = useState<'link' | 'qr'>('link');
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   const directLink = buildDirectInviteLink(roomId, password);
   const sharePayload = `🔒 Join my Private Social Lounge!\nRoom ID: ${roomId}\nPasscode: ${password}\n\n⚡ 1-Click Direct Join Link (No password prompt):\n${directLink}`;
 
-  const handleCopyDirectLink = () => {
-    navigator.clipboard.writeText(directLink);
+  const handleCopyDirectLink = async () => {
+    await copyToClipboard(directLink);
     setCopiedDirectLink(true);
     setTimeout(() => setCopiedDirectLink(false), 2000);
   };
 
-  const handleCopyFullMsg = () => {
-    navigator.clipboard.writeText(sharePayload);
+  const handleCopyRoomId = async () => {
+    await copyToClipboard(roomId);
+    setCopiedRoomId(true);
+    setTimeout(() => setCopiedRoomId(false), 2000);
+  };
+
+  const handleCopyPasscode = async () => {
+    await copyToClipboard(password);
+    setCopiedPasscode(true);
+    setTimeout(() => setCopiedPasscode(false), 2000);
+  };
+
+  const handleCopyFullMsg = async () => {
+    await copyToClipboard(sharePayload);
     setCopiedFullMsg(true);
     setTimeout(() => setCopiedFullMsg(false), 2000);
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-
-      <div className="glass-card w-full max-w-md rounded-2xl p-4 sm:p-6 border border-white/10 shadow-2xl relative max-h-[90dvh] overflow-y-auto">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card w-full max-w-md rounded-2xl p-4 sm:p-6 border border-white/10 shadow-2xl relative max-h-[90dvh] overflow-y-auto"
+      >
         <button
           onClick={onClose}
           className="absolute top-3 right-3 p-2.5 text-slate-400 hover:text-white rounded-full transition hover:bg-white/10 min-w-[44px] min-h-[44px] flex items-center justify-center"
+          title="Close Modal"
         >
           <X className="w-5 h-5" />
         </button>
@@ -134,15 +171,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password
               </span>
             </div>
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(roomId);
-                setCopiedDirectLink(true);
-                setTimeout(() => setCopiedDirectLink(false), 2000);
-              }}
-              className="text-xs text-slate-300 hover:text-white p-2 rounded-lg bg-white/5 hover:bg-white/10 transition"
+              onClick={handleCopyRoomId}
+              className="text-xs text-slate-300 hover:text-white p-2 rounded-lg bg-white/5 hover:bg-white/10 transition flex items-center space-x-1"
               title="Copy Room ID"
             >
-              <Copy className="w-4 h-4" />
+              {copiedRoomId ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span className="text-[11px] text-emerald-400 font-semibold">Copied!</span>
+                </>
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
             </button>
           </div>
 
@@ -153,12 +193,29 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, roomId, password
                 {showPassword ? password : '••••••••'}
               </span>
             </div>
-            <button
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-xs text-slate-300 hover:text-white p-2 rounded-lg bg-white/5 hover:bg-white/10 transition"
-            >
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={handleCopyPasscode}
+                className="text-xs text-slate-300 hover:text-white p-2 rounded-lg bg-white/5 hover:bg-white/10 transition flex items-center space-x-1"
+                title="Copy Passcode"
+              >
+                {copiedPasscode ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-400" />
+                    <span className="text-[11px] text-emerald-400 font-semibold">Copied!</span>
+                  </>
+                ) : (
+                  <Copy className="w-4 h-4" />
+                )}
+              </button>
+              <button
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-xs text-slate-300 hover:text-white p-2 rounded-lg bg-white/5 hover:bg-white/10 transition"
+                title={showPassword ? 'Hide Passcode' : 'Show Passcode'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
         </div>
 

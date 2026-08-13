@@ -100,10 +100,13 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
   const initPlayer = () => {
     if (!containerRef.current || playerRef.current) return;
 
+    const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+
     playerRef.current = new window.YT.Player(containerRef.current, {
       height: '100%',
       width: '100%',
       videoId: currentTrack?.videoId || '',
+      host: 'https://www.youtube.com',
       playerVars: {
         autoplay: 1,
         controls: 0,
@@ -112,7 +115,10 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
         modestbranding: 1,
         rel: 0,
         iv_load_policy: 3,
+        enablejsapi: 1,
+        origin: currentOrigin,
       },
+
       events: {
         onReady: (event: any) => {
           setIsPlayerReady(true);

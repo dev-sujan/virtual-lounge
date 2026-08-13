@@ -1,36 +1,44 @@
-// WebCrypto API AES-256-GCM End-to-End Encryption (E2EE)
+// WebCrypto API AES-256-GCM End-to-End Encryption (E2EE) with HTTP fallback
 
-// Cache derived keys per secret/passphrase
 const keyCache: Record<string, CryptoKey> = {};
 
-async function getEncryptionKey(passphrase: string): Promise<CryptoKey> {
+async function getEncryptionKey(passphrase: string): Promise<CryptoKey | null> {
+  if (typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
+    return null;
+  }
+
   if (keyCache[passphrase]) return keyCache[passphrase];
 
-  const enc = new TextEncoder();
-  const keyMaterial = await window.crypto.subtle.importKey(
-    'raw',
-    enc.encode(passphrase),
-    { name: 'PBKDF2' },
-    false,
-    ['deriveKey']
-  );
+  try {
+    const enc = new TextEncoder();
+    const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      enc.encode(passphrase),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
 
-  const salt = enc.encode(`synclounge_salt_${passphrase}`);
-  const key = await window.crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt,
-      iterations: 1000,
-      hash: 'SHA-256',
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['encrypt', 'decrypt']
-  );
+    const salt = enc.encode(`synclounge_salt_${passphrase}`);
+    const key = await window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt,
+        iterations: 1000,
+        hash: 'SHA-256',
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt', 'decrypt']
+    );
 
-  keyCache[passphrase] = key;
-  return key;
+    keyCache[passphrase] = key;
+    return key;
+  } catch (err) {
+    console.warn('[Crypto] PBKDF2 Key derivation failed:', err);
+    return null;
+  }
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
@@ -41,7 +49,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
   }
   return window.btoa(binary);
 }
-
 
 function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binary = window.atob(base64);
@@ -59,13 +66,15 @@ export interface EncryptedPackage {
   ciphertext: string; // Base64 ciphertext
 }
 
-export async function encryptPayload(payload: any, secretKey: string): Promise<EncryptedPackage> {
-  if (!secretKey) {
-    return payload; // Fallback if no secret key provided
+export async function encryptPayload(payload: any, secretKey: string): Promise<any> {
+  if (!secretKey || typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
+    return payload; // Graceful pass-through if WebCrypto subtle API is missing (e.g. non-secure HTTP origin)
   }
 
   try {
     const key = await getEncryptionKey(secretKey);
+    if (!key) return payload;
+
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
     const enc = new TextEncoder();
     const encodedPayload = enc.encode(JSON.stringify(payload));
@@ -88,12 +97,14 @@ export async function encryptPayload(payload: any, secretKey: string): Promise<E
 }
 
 export async function decryptPayload(data: any, secretKey: string): Promise<any> {
-  if (!data || typeof data !== 'object' || !data.__e2ee || !secretKey) {
+  if (!data || typeof data !== 'object' || !data.__e2ee || !secretKey || typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
     return data;
   }
 
   try {
     const key = await getEncryptionKey(secretKey);
+    if (!key) return data;
+
     const iv = base64ToArrayBuffer(data.iv);
     const ciphertext = base64ToArrayBuffer(data.ciphertext);
 

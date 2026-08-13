@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useRoomStore } from '../../stores/useRoomStore';
 import { useVideoStore } from '../../stores/useVideoStore';
 import { peerService } from '../../services/webrtc/peerService';
-import { LogOut, AlertTriangle } from 'lucide-react';
+import { LogOut, AlertTriangle, X } from 'lucide-react';
 
 interface LeaveModalProps {
   isOpen: boolean;
@@ -12,6 +12,22 @@ interface LeaveModalProps {
 export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose }) => {
   const { leaveRoom, currentUser } = useRoomStore();
   const { closeVideoCall } = useVideoStore();
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -30,9 +46,22 @@ export const LeaveModal: React.FC<LeaveModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card w-full max-w-sm rounded-2xl p-5 sm:p-6 border border-white/10 shadow-2xl text-center max-h-[90dvh] overflow-y-auto relative"
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 p-2 text-slate-400 hover:text-white rounded-full transition hover:bg-white/10"
+          title="Close Modal"
+        >
+          <X className="w-4 h-4" />
+        </button>
 
-      <div className="glass-card w-full max-w-sm rounded-2xl p-5 sm:p-6 border border-white/10 shadow-2xl text-center max-h-[90dvh] overflow-y-auto">
         <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 mx-auto mb-4">
           <AlertTriangle className="w-6 h-6" />
         </div>

@@ -8,6 +8,7 @@ import { PwaInstallPrompt } from '../common/PwaInstallPrompt';
 import { ShareModal } from './ShareModal';
 import { LeaveModal } from './LeaveModal';
 import { buildDirectInviteLink } from '../../utils/roomUtils';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 import { getInitials } from '../../utils/avatarUtils';
 import { Lock, Share2, LogOut, Video, Copy, Check, ShieldCheck, Wifi } from 'lucide-react';
 
@@ -42,10 +43,10 @@ export const RoomHeader: React.FC = () => {
     }
   };
 
-  const handleCopyId = () => {
+  const handleCopyId = async () => {
     if (!roomId) return;
     const directLink = buildDirectInviteLink(roomId, password || '');
-    navigator.clipboard.writeText(directLink);
+    await copyToClipboard(directLink);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   };
