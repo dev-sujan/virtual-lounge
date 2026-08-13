@@ -8,13 +8,23 @@ import type { SyncMessageHandler } from './types';
 import type { User } from '../../../types';
 
 export const handlePing: SyncMessageHandler = (payload, _senderId, ctx) => {
-  ctx.peerService.broadcast('PONG', { pingTimestamp: payload.timestamp });
+  ctx.peerService.broadcast('PONG', {
+    pingTimestamp: payload.timestamp,
+    serverTime: Date.now(),
+  });
 };
 
 export const handlePong: SyncMessageHandler = (payload, senderId, _ctx) => {
   if (payload.pingTimestamp) {
-    const pingMs = Math.max(1, Math.round(Date.now() - payload.pingTimestamp));
-    useRoomStore.getState().setPeerPing(senderId, pingMs);
+    const now = Date.now();
+    const rtt = Math.max(1, Math.round(now - payload.pingTimestamp));
+    useRoomStore.getState().setPeerPing(senderId, rtt);
+
+    if (payload.serverTime) {
+      const hostEstimatedNow = payload.serverTime + rtt / 2;
+      const offset = hostEstimatedNow - now;
+      useRoomStore.getState().setHostClockOffset(offset);
+    }
   }
 };
 

@@ -12,6 +12,7 @@ interface RoomState {
   errorMessage: string | null;
 
   peerPings: Record<string, number>;
+  hostClockOffset: number;
 
   // Actions
   setRoomSession: (roomId: string, password: string, user: User, isHost: boolean) => void;
@@ -21,6 +22,7 @@ interface RoomState {
   removePeer: (peerId: string) => void;
   updatePeerStatus: (peerId: string, updates: Partial<User>) => void;
   setPeerPing: (peerId: string, pingMs: number) => void;
+  setHostClockOffset: (offset: number) => void;
   setConnectionStatus: (status: 'disconnected' | 'connecting' | 'connected' | 'error', error?: string) => void;
   leaveRoom: () => void;
 }
@@ -31,6 +33,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   currentUser: null,
   peers: [],
   peerPings: {},
+  hostClockOffset: 0,
   isHost: false,
   connectionStatus: 'disconnected',
   errorMessage: null,
@@ -132,6 +135,8 @@ export const useRoomStore = create<RoomState>((set, get) => ({
       peers: get().peers.map((p) => (p.id === peerId ? { ...p, pingMs } : p)),
     });
   },
+
+  setHostClockOffset: (offset) => set({ hostClockOffset: offset }),
 
   setConnectionStatus: (status, error) => {
     set({ connectionStatus: status, errorMessage: error || null });

@@ -86,9 +86,35 @@ export function useWebRTC() {
       }
     }, 5000);
 
+    // Instant re-sync on tab visibility change (resolves tab sleep / throttle drift)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const state = useRoomStore.getState();
+        if (!state.currentUser) return;
+        peerService.broadcast('PING', { timestamp: Date.now() });
+
+        if (state.isHost) {
+          const musicState = useMusicStore.getState();
+          const chatState = useChatStore.getState();
+          peerService.broadcast('ROOM_STATE_SYNC', {
+            queue: musicState.queue,
+            currentTrack: musicState.currentTrack,
+            playback: musicState.playback,
+            repeatMode: musicState.repeatMode,
+            shuffleMode: musicState.shuffleMode,
+            chatMessages: chatState.messages,
+            peers: state.peers,
+          });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       isSubscribed = false;
       clearInterval(heartbeatTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [roomId, currentUser?.id, isHost, password]);
 

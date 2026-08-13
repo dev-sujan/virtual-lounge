@@ -183,13 +183,30 @@ export const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ onOpenAddModal }) 
 
       let expectedTime = playback.currentTime;
       if (playback.isPlaying) {
-        const elapsed = (Date.now() - playback.lastUpdated) / 1000;
+        const hostClockOffset = useRoomStore.getState().hostClockOffset || 0;
+        const nowInHostTime = Date.now() + hostClockOffset;
+        const elapsed = Math.max(0, (nowInHostTime - playback.lastUpdated) / 1000);
         expectedTime += elapsed;
       }
 
       const actualTime = playerRef.current.getCurrentTime?.() || 0;
-      if (Math.abs(actualTime - expectedTime) > 3.0) {
+      const drift = actualTime - expectedTime;
+      const absDrift = Math.abs(drift);
+
+      if (absDrift > 2.0) {
         playerRef.current.seekTo(expectedTime, true);
+      } else if (absDrift > 0.4 && playback.isPlaying) {
+        const rate = drift < 0 ? 1.05 : 0.95;
+        if (playerRef.current.setPlaybackRate) {
+          playerRef.current.setPlaybackRate(rate);
+          setTimeout(() => {
+            try {
+              if (playerRef.current?.setPlaybackRate) {
+                playerRef.current.setPlaybackRate(1.0);
+              }
+            } catch {}
+          }, 1500);
+        }
       }
     } catch (err) {
       console.warn('Player sync error:', err);

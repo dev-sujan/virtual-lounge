@@ -191,28 +191,41 @@ class PeerService {
     if (this.autoReconnectTimer) return;
 
     let attempts = 0;
-    console.log('[P2P] Connection lost. Starting auto-reconnect retry loop...');
+    const maxAttempts = 25;
+    console.log('[P2P] Connection lost. Starting exponential backoff auto-reconnect...');
 
-    this.autoReconnectTimer = setInterval(async () => {
+    const runReconnect = async () => {
       attempts++;
       const { isHost, currentUser } = useRoomStore.getState();
 
-      if (isHost || this.connections.size > 0 || attempts > 20) {
-        if (this.autoReconnectTimer) clearInterval(this.autoReconnectTimer);
+      const hostId = `synclounge-room-${roomId.toLowerCase()}`;
+      const activeHostConn = this.connections.get(hostId);
+
+      if (isHost || (activeHostConn && activeHostConn.open) || attempts > maxAttempts) {
+        if (this.autoReconnectTimer) clearTimeout(this.autoReconnectTimer);
         this.autoReconnectTimer = null;
         return;
       }
 
-      console.log(`[P2P] Auto-reconnecting to room "${roomId}" (attempt ${attempts})...`);
+      console.log(`[P2P] Auto-reconnecting to room "${roomId}" (attempt ${attempts}/${maxAttempts})...`);
       const conn = await this.connectToHost(roomId);
-      if (conn && currentUser) {
+      if (conn && currentUser && conn.open) {
         const normalizedPassword = (useRoomStore.getState().password || '').trim();
         this.sendToPeer(conn, 'JOIN_REQUEST', {
           password: normalizedPassword,
           user: currentUser,
         });
+        if (this.autoReconnectTimer) clearTimeout(this.autoReconnectTimer);
+        this.autoReconnectTimer = null;
+        return;
       }
-    }, 2500);
+
+      // Exponential backoff delay with random jitter (2s, 3.5s, 5.5s... max 15s)
+      const nextDelay = Math.min(15000, Math.floor(2000 * Math.pow(1.4, attempts - 1) + Math.random() * 600));
+      this.autoReconnectTimer = setTimeout(runReconnect, nextDelay);
+    };
+
+    this.autoReconnectTimer = setTimeout(runReconnect, 1000);
   }
 
   private setupDataConnection(conn: DataConnection) {
@@ -545,7 +558,7 @@ class PeerService {
 
   public destroy() {
     if (this.autoReconnectTimer) {
-      clearInterval(this.autoReconnectTimer);
+      clearTimeout(this.autoReconnectTimer);
       this.autoReconnectTimer = null;
     }
     this.messageHandlers = [];
