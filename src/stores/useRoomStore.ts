@@ -75,15 +75,21 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   },
 
   setPeers: (peers) => {
-    set({ peers });
     const current = get().currentUser;
+    const now = Date.now();
+    const filtered = current ? peers.filter((p) => p.id !== current.id) : peers;
+    const stampedPeers = filtered.map((p) => ({
+      ...p,
+      lastSeen: p.lastSeen || now,
+    }));
+    set({ peers: stampedPeers });
     if (current && get().roomId) {
       saveSessionToStorage({
         roomId: get().roomId || '',
         passwordHash: get().password || '',
         userId: current.id,
         user: current,
-        peers,
+        peers: stampedPeers,
         createdAt: Date.now(),
       });
     }
@@ -91,8 +97,16 @@ export const useRoomStore = create<RoomState>((set, get) => ({
 
   addPeer: (peer) => {
     const peers = get().peers;
-    if (peers.some((p) => p.id === peer.id)) return;
-    const newPeers = [...peers, peer];
+    const existingIndex = peers.findIndex((p) => p.id === peer.id);
+    const stamped = { ...peer, lastSeen: Date.now() };
+    let newPeers: User[];
+    if (existingIndex >= 0) {
+      // Upsert: merge updates into existing peer entry
+      newPeers = [...peers];
+      newPeers[existingIndex] = { ...newPeers[existingIndex], ...stamped };
+    } else {
+      newPeers = [...peers, stamped];
+    }
     set({ peers: newPeers });
     const current = get().currentUser;
     if (current && get().roomId) {

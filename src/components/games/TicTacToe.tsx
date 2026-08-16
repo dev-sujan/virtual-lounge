@@ -23,10 +23,20 @@ export const TicTacToe: React.FC = () => {
   const { currentUser, peers } = useRoomStore();
 
   const otherPeer = peers.find((p) => p.id !== currentUser?.id);
-  const isPlayer1 = currentUser?.isHost || (otherPeer && currentUser ? currentUser.id < otherPeer.id : true);
+  const hostPeer = peers.find((p) => p.isHost);
+  const isPlayer1 = currentUser?.isHost
+    ? true
+    : hostPeer
+    ? false
+    : otherPeer && currentUser
+    ? currentUser.id < otherPeer.id
+    : true;
   const symbol = isPlayer1 ? 'X' : 'O';
-  const isMyTurn = ticTacToe.turn === currentUser?.id || !ticTacToe.turn;
+  const player1Id = isPlayer1 ? currentUser?.id : otherPeer?.id;
+  const player2Id = isPlayer1 ? otherPeer?.id : currentUser?.id;
 
+  const currentTurn = ticTacToe.turn || player1Id || currentUser?.id;
+  const isMyTurn = currentTurn === currentUser?.id;
 
   const handleCellClick = (index: number) => {
     if (!currentUser || ticTacToe.board[index] || ticTacToe.winner || !isMyTurn) return;
@@ -44,7 +54,6 @@ export const TicTacToe: React.FC = () => {
         winningLine = combo;
         playVictorySound();
         confetti({ particleCount: 80, spread: 60, origin: { y: 0.7 } });
-
         break;
       }
     }
@@ -53,8 +62,7 @@ export const TicTacToe: React.FC = () => {
       winner = 'draw';
     }
 
-    const nextTurn = otherPeer ? otherPeer.id : currentUser.id;
-
+    const nextTurn = currentTurn === player1Id ? (player2Id || player1Id) : player1Id;
 
     const newScores = { ...ticTacToe.scores };
     if (winner && winner !== 'draw') {
@@ -77,10 +85,11 @@ export const TicTacToe: React.FC = () => {
   };
 
   const handleRestart = () => {
-    resetTicTacToe(currentUser?.id);
+    const firstTurn = player1Id || currentUser?.id;
+    resetTicTacToe(firstTurn);
     peerService.broadcast('GAME_STATE_CHANGE', {
       gameType: 'tictactoe',
-      state: { board: Array(9).fill(null), winner: null, winningLine: null, turn: currentUser?.id },
+      state: { board: Array(9).fill(null), winner: null, winningLine: null, turn: firstTurn },
     });
   };
 

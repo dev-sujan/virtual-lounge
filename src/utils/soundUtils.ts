@@ -1,8 +1,8 @@
 // Web Audio API Synthesized UI & DJ Sound Effects
 let audioCtx: AudioContext | null = null;
 
-function getAudioContext(): AudioContext | null {
-  if (typeof window === 'undefined') return null;
+function unlockAudioContext() {
+  if (typeof window === 'undefined') return;
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (AudioContextClass) {
@@ -10,6 +10,24 @@ function getAudioContext(): AudioContext | null {
     }
   }
   if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+}
+
+if (typeof window !== 'undefined') {
+  const events = ['click', 'touchstart', 'keydown'];
+  const handler = () => {
+    unlockAudioContext();
+    events.forEach((evt) => window.removeEventListener(evt, handler, true));
+  };
+  events.forEach((evt) => window.addEventListener(evt, handler, { capture: true, once: true }));
+}
+
+function getAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null;
+  if (!audioCtx) {
+    unlockAudioContext();
+  } else if (audioCtx.state === 'suspended') {
     audioCtx.resume().catch(() => {});
   }
   return audioCtx;

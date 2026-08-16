@@ -17,19 +17,23 @@ export const RockPaperScissors: React.FC = () => {
   const { rps, updateRPS } = useGameStore();
   const { currentUser, peers } = useRoomStore();
 
+  const otherPeer = peers.find((p) => p.id !== currentUser?.id);
   const myChoice = currentUser ? rps.choices[currentUser.id] : null;
+  const opponentId = otherPeer?.id;
+  const hasOpponentChosen = opponentId ? !!rps.choices[opponentId] : false;
 
   const handleSelectChoice = (choice: Choice) => {
-    if (!currentUser) return;
+    if (!currentUser || myChoice) return;
 
     const newChoices = { ...rps.choices, [currentUser.id]: choice };
-    const peerIds = [currentUser.id, ...peers.map((p) => p.id)];
+    const p1Id = currentUser.isHost ? currentUser.id : opponentId || currentUser.id;
+    const p2Id = currentUser.isHost ? opponentId || currentUser.id : currentUser.id;
 
     let winner: string | null = null;
 
-    if (peerIds.length >= 2 && newChoices[peerIds[0]] && newChoices[peerIds[1]]) {
-      const c1 = newChoices[peerIds[0]];
-      const c2 = newChoices[peerIds[1]];
+    if (newChoices[p1Id] && newChoices[p2Id] && p1Id !== p2Id) {
+      const c1 = newChoices[p1Id];
+      const c2 = newChoices[p2Id];
 
       if (c1 === c2) {
         winner = 'draw';
@@ -38,9 +42,9 @@ export const RockPaperScissors: React.FC = () => {
         (c1 === 'paper' && c2 === 'rock') ||
         (c1 === 'scissors' && c2 === 'paper')
       ) {
-        winner = peerIds[0];
+        winner = p1Id;
       } else {
-        winner = peerIds[1];
+        winner = p2Id;
       }
 
       if (winner && winner !== 'draw') {
@@ -49,7 +53,7 @@ export const RockPaperScissors: React.FC = () => {
     }
 
     const newScores = { ...rps.scores };
-    if (winner && winner !== 'draw') {
+    if (winner && winner !== 'draw' && !rps.winner) {
       newScores[winner] = (newScores[winner] || 0) + 1;
     }
 
@@ -67,7 +71,7 @@ export const RockPaperScissors: React.FC = () => {
   };
 
   const handleNextRound = () => {
-    const newState = { choices: {}, winner: null, round: rps.round + 1 };
+    const newState = { choices: {}, winner: null, round: rps.round + 1, scores: rps.scores };
     updateRPS(newState);
     peerService.broadcast('GAME_STATE_CHANGE', {
       gameType: 'rps',
@@ -87,7 +91,7 @@ export const RockPaperScissors: React.FC = () => {
           <button
             key={c.id}
             onClick={() => handleSelectChoice(c.id)}
-            disabled={!!rps.winner}
+            disabled={!!rps.winner || !!myChoice}
             className={`w-20 h-20 rounded-2xl flex flex-col items-center justify-center transition-all transform active:scale-95 shadow-lg border ${
               myChoice === c.id
                 ? 'bg-gradient-to-r from-indigo-500 to-purple-600 border-indigo-400 ring-2 ring-indigo-400 scale-105'
@@ -99,6 +103,13 @@ export const RockPaperScissors: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {!rps.winner && myChoice && (
+        <div className="text-xs text-indigo-300 font-medium flex items-center space-x-2 animate-pulse">
+          <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping" />
+          <span>{hasOpponentChosen ? 'Opponent selected! Resolving...' : 'Secret pick locked in. Waiting for opponent...'}</span>
+        </div>
+      )}
 
       {rps.winner && (
         <div className="p-4 rounded-xl bg-slate-900/80 border border-white/10 text-center w-full max-w-xs animate-fadeIn">

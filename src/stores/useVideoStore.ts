@@ -70,49 +70,39 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   setLocalStream: (stream) => set({ localStream: stream }),
 
   toggleMic: async () => {
-    const { localStream, isMicOn, isCameraOn } = get();
+    const { localStream, isMicOn } = get();
     const nextMicState = !isMicOn;
     const { peerService } = await import('../services/webrtc/peerService');
     const { useRoomStore } = await import('./useRoomStore');
     const currentUser = useRoomStore.getState().currentUser;
 
-    if (!nextMicState) {
-      // Turning microphone OFF: stop audio track to release microphone hardware completely
-      if (localStream) {
-        localStream.getAudioTracks().forEach((track) => {
-          track.stop();
-          localStream.removeTrack(track);
-        });
-      }
-      set({ isMicOn: false });
-    } else {
-      // Turning microphone ON: request fresh microphone audio stream
+    if (localStream && localStream.getAudioTracks().length > 0) {
+      localStream.getAudioTracks().forEach((track) => {
+        track.enabled = nextMicState;
+      });
+      set({ isMicOn: nextMicState });
+    } else if (nextMicState) {
       try {
-        const newMicStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: isCameraOn });
-        const newAudioTrack = newMicStream.getAudioTracks()[0];
-
-        let updatedStream = localStream;
-        if (updatedStream) {
-          // Remove old audio tracks if any
-          updatedStream.getAudioTracks().forEach((t) => updatedStream!.removeTrack(t));
-          if (newAudioTrack) {
+        const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const newAudioTrack = audioStream.getAudioTracks()[0];
+        if (newAudioTrack) {
+          let updatedStream = localStream;
+          if (updatedStream) {
             updatedStream.addTrack(newAudioTrack);
+          } else {
+            updatedStream = new MediaStream([newAudioTrack]);
           }
-        } else {
-          updatedStream = newMicStream;
+          const freshStream = new MediaStream(updatedStream.getTracks());
+          set({ localStream: freshStream, isMicOn: true });
+          peerService.updateLocalStreamTrack(freshStream);
         }
-
-        const freshStream = new MediaStream(updatedStream.getTracks());
-        set({ localStream: freshStream, isMicOn: true });
-
-        // Update active WebRTC peer connections with the new audio track
-        peerService.updateLocalStreamTrack(freshStream);
-        peerService.callAllPeers(freshStream);
       } catch (err) {
-        console.error('Failed to turn microphone back on:', err);
+        console.error('Failed to access microphone:', err);
         set({ isMicOn: false });
         return;
       }
+    } else {
+      set({ isMicOn: false });
     }
 
     try {
@@ -129,50 +119,39 @@ export const useVideoStore = create<VideoState>((set, get) => ({
   },
 
   toggleCamera: async () => {
-    const { localStream, isCameraOn, isMicOn } = get();
+    const { localStream, isCameraOn } = get();
     const nextCamState = !isCameraOn;
     const { peerService } = await import('../services/webrtc/peerService');
     const { useRoomStore } = await import('./useRoomStore');
     const currentUser = useRoomStore.getState().currentUser;
 
-    if (!nextCamState) {
-      // Turning camera OFF: stop video track to release hardware camera completely
-      if (localStream) {
-        localStream.getVideoTracks().forEach((track) => {
-          track.stop();
-          localStream.removeTrack(track);
-        });
-      }
-      set({ isCameraOn: false });
-    } else {
-      // Turning camera ON: request fresh camera video stream
+    if (localStream && localStream.getVideoTracks().length > 0) {
+      localStream.getVideoTracks().forEach((track) => {
+        track.enabled = nextCamState;
+      });
+      set({ isCameraOn: nextCamState });
+    } else if (nextCamState) {
       try {
-        const newCamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: isMicOn });
-        const newVideoTrack = newCamStream.getVideoTracks()[0];
-
-        let updatedStream = localStream;
-        if (updatedStream) {
-          // Remove old video tracks if any
-          updatedStream.getVideoTracks().forEach((t) => updatedStream!.removeTrack(t));
-          if (newVideoTrack) {
+        const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const newVideoTrack = videoStream.getVideoTracks()[0];
+        if (newVideoTrack) {
+          let updatedStream = localStream;
+          if (updatedStream) {
             updatedStream.addTrack(newVideoTrack);
+          } else {
+            updatedStream = new MediaStream([newVideoTrack]);
           }
-        } else {
-          updatedStream = newCamStream;
+          const freshStream = new MediaStream(updatedStream.getTracks());
+          set({ localStream: freshStream, isCameraOn: true });
+          peerService.updateLocalStreamTrack(freshStream);
         }
-
-        // Create a new MediaStream reference so React components detect store change
-        const freshStream = new MediaStream(updatedStream.getTracks());
-        set({ localStream: freshStream, isCameraOn: true });
-
-        // Update active WebRTC peer connections with the new video track
-        peerService.updateLocalStreamTrack(freshStream);
-        peerService.callAllPeers(freshStream);
       } catch (err) {
-        console.error('Failed to turn camera back on:', err);
+        console.error('Failed to access camera:', err);
         set({ isCameraOn: false });
         return;
       }
+    } else {
+      set({ isCameraOn: false });
     }
 
     try {
@@ -201,7 +180,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
         const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         set({ localStream: camStream, isScreenSharing: false, isCameraOn: true });
         peerService.updateLocalStreamTrack(camStream);
-        peerService.callAllPeers(camStream);
       } catch {
         set({ isScreenSharing: false });
       }
@@ -241,7 +219,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
             const camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
             set({ localStream: camStream, isScreenSharing: false, isCameraOn: true });
             peerService.updateLocalStreamTrack(camStream);
-            peerService.callAllPeers(camStream);
           } catch {
             set({ isScreenSharing: false });
           }
@@ -249,7 +226,6 @@ export const useVideoStore = create<VideoState>((set, get) => ({
 
         set({ localStream: combinedStream, isScreenSharing: true, isCameraOn: true });
         peerService.updateLocalStreamTrack(combinedStream);
-        peerService.callAllPeers(combinedStream);
 
         useToastStore.getState().addToast({
           category: 'media',

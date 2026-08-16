@@ -9,6 +9,7 @@ export interface User {
   pingMs?: number;
   vibeStatus?: string;
   currentActivity?: string;
+  lastSeen?: number;
 }
 
 export interface RoomSession {

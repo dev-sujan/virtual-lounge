@@ -6,7 +6,7 @@ import { peerService } from '../services/webrtc/peerService';
 import type { User } from '../types';
 
 export function useWebRTC() {
-  const { roomId, password, currentUser, isHost, connectionStatus } = useRoomStore();
+  const { roomId, currentUser, isHost, connectionStatus } = useRoomStore();
 
   // Initialize P2P node when user session is active
   useEffect(() => {
@@ -57,18 +57,20 @@ export function useWebRTC() {
 
     initP2P();
 
-    // Heartbeat: presence ping + host full state sync every 5 seconds
+    // Heartbeat: presence ping + host playback & peer state sync every 5 seconds
     const heartbeatTimer = setInterval(() => {
       const state = useRoomStore.getState();
-      if (!state.currentUser) return;
+      if (!state.currentUser || state.connectionStatus !== 'connected') return;
 
       peerService.broadcast('PEER_PRESENCE_UPDATE', { user: state.currentUser });
       peerService.broadcast('PING', { timestamp: Date.now() });
 
       if (state.isHost) {
         const musicState = useMusicStore.getState();
-        const chatState = useChatStore.getState();
         const roomState = useRoomStore.getState();
+        const allParticipants = state.currentUser
+          ? [state.currentUser, ...roomState.peers]
+          : roomState.peers;
 
         peerService.broadcast('ROOM_STATE_SYNC', {
           queue: musicState.queue,
@@ -76,8 +78,7 @@ export function useWebRTC() {
           playback: musicState.playback,
           repeatMode: musicState.repeatMode,
           shuffleMode: musicState.shuffleMode,
-          chatMessages: chatState.messages,
-          peers: roomState.peers,
+          peers: allParticipants,
         });
       }
     }, 5000);
@@ -91,15 +92,17 @@ export function useWebRTC() {
 
         if (state.isHost) {
           const musicState = useMusicStore.getState();
-          const chatState = useChatStore.getState();
+          const allParticipants = state.currentUser
+            ? [state.currentUser, ...state.peers]
+            : state.peers;
+
           peerService.broadcast('ROOM_STATE_SYNC', {
             queue: musicState.queue,
             currentTrack: musicState.currentTrack,
             playback: musicState.playback,
             repeatMode: musicState.repeatMode,
             shuffleMode: musicState.shuffleMode,
-            chatMessages: chatState.messages,
-            peers: state.peers,
+            peers: allParticipants,
           });
         }
       }
@@ -112,7 +115,31 @@ export function useWebRTC() {
       clearInterval(heartbeatTimer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [roomId, currentUser?.id, isHost, password]);
+  // password intentionally excluded: changing password should not re-initialize the P2P session
+  }, [roomId, currentUser?.id, isHost]);
+
+  // Prune stale peers that haven't sent a presence update in 30 seconds
+  useEffect(() => {
+    if (!roomId || !currentUser || !isHost) return;
+
+    const pruneTimer = setInterval(() => {
+      const { peers, currentUser: self } = useRoomStore.getState();
+      const now = Date.now();
+      const STALE_THRESHOLD_MS = 30_000;
+
+      const stalePeerIds = peers
+        .filter((p) => p.id !== self?.id && p.lastSeen && now - p.lastSeen > STALE_THRESHOLD_MS)
+        .map((p) => p.id);
+
+      stalePeerIds.forEach((id) => {
+        const peer = peers.find((p) => p.id === id);
+        console.log(`[P2P] Pruning stale peer: ${peer?.displayName} (${id}), last seen ${Math.round((now - (peer?.lastSeen || 0)) / 1000)}s ago`);
+        useRoomStore.getState().removePeer(id);
+      });
+    }, 15_000);
+
+    return () => clearInterval(pruneTimer);
+  }, [roomId, currentUser?.id, isHost]);
 
   // Broadcast presence updates when user changes status (e.g. mic / camera toggles)
   const updatePresence = useCallback(

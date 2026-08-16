@@ -8,10 +8,23 @@ import type { SyncMessageHandler } from './types';
 import type { User } from '../../../types';
 
 export const handlePing: SyncMessageHandler = (payload, _senderId, ctx) => {
-  ctx.peerService.broadcast('PONG', {
-    pingTimestamp: payload.timestamp,
-    serverTime: Date.now(),
-  });
+  // Reply directly to the sender instead of broadcasting to all peers (avoids O(N²) messages)
+  const senderConn = ctx.sourcePeerId
+    ? ctx.peerService.connections.get(ctx.sourcePeerId)
+    : null;
+
+  if (senderConn && senderConn.open) {
+    ctx.peerService.sendToPeer(senderConn, 'PONG', {
+      pingTimestamp: payload.timestamp,
+      serverTime: Date.now(),
+    });
+  } else {
+    // Fallback: broadcast if we can't find the sender's connection
+    ctx.peerService.broadcast('PONG', {
+      pingTimestamp: payload.timestamp,
+      serverTime: Date.now(),
+    });
+  }
 };
 
 export const handlePong: SyncMessageHandler = (payload, senderId, _ctx) => {
@@ -28,7 +41,7 @@ export const handlePong: SyncMessageHandler = (payload, senderId, _ctx) => {
   }
 };
 
-export const handleJoinRequest: SyncMessageHandler = (payload, senderId, ctx) => {
+export const handleJoinRequest: SyncMessageHandler = (payload, _senderId, ctx) => {
   if (!payload || !payload.user) return;
   const { password, currentUser, isHost } = useRoomStore.getState();
   const toastStore = useToastStore.getState();
@@ -36,8 +49,9 @@ export const handleJoinRequest: SyncMessageHandler = (payload, senderId, ctx) =>
   const { password: reqPassword, user: reqUser } = payload;
   if (password && reqPassword !== password) {
     // Send rejection directly to the requesting peer's connection
-    const rejectingConn = ctx.peerService.connections.get(senderId) ||
-      Array.from(ctx.peerService.connections.values() as any[]).find((c: any) => c.open);
+    const rejectingConn = ctx.sourcePeerId
+      ? ctx.peerService.connections.get(ctx.sourcePeerId)
+      : null;
     if (rejectingConn && rejectingConn.open) {
       ctx.peerService.sendToPeer(rejectingConn, 'JOIN_RESPONSE', {
         targetUserId: reqUser.id,
@@ -67,8 +81,15 @@ export const handleJoinRequest: SyncMessageHandler = (payload, senderId, ctx) =>
   });
 
   if (isHost) {
-    const joiningConn = ctx.peerService.connections.get(senderId) ||
-      Array.from(ctx.peerService.connections.values() as any[]).find((c: any) => c.open);
+    const joiningConn = ctx.sourcePeerId
+      ? ctx.peerService.connections.get(ctx.sourcePeerId)
+      : null;
+
+    // Filter out temporary vanish messages when providing initial chat history
+    const persistentChatMessages = useChatStore.getState().messages.filter((m) => !m.isVanish);
+    const allParticipants = currentUser
+      ? [currentUser, ...useRoomStore.getState().peers]
+      : useRoomStore.getState().peers;
 
     const joinResponsePayload = {
       targetUserId: reqUser.id,
@@ -79,8 +100,8 @@ export const handleJoinRequest: SyncMessageHandler = (payload, senderId, ctx) =>
         playback: useMusicStore.getState().playback,
         repeatMode: useMusicStore.getState().repeatMode,
         shuffleMode: useMusicStore.getState().shuffleMode,
-        chatMessages: useChatStore.getState().messages,
-        peers: [...useRoomStore.getState().peers, currentUser],
+        chatMessages: persistentChatMessages,
+        peers: allParticipants,
       },
     };
 
@@ -89,6 +110,9 @@ export const handleJoinRequest: SyncMessageHandler = (payload, senderId, ctx) =>
     } else {
       ctx.peerService.broadcast('JOIN_RESPONSE', joinResponsePayload);
     }
+
+    // Announce the newly joined guest to all other peers in the room
+    ctx.peerService.broadcast('PEER_PRESENCE_UPDATE', { user: reqUser });
 
     const videoStore = useVideoStore.getState();
     if (videoStore.isVideoCallActive && ctx.peerService.peer) {
@@ -107,15 +131,19 @@ export const handleHostAnnounce: SyncMessageHandler = (payload, _senderId, ctx) 
   const { roomId: annRoomId } = payload;
   const currentRoomId = useRoomStore.getState().roomId;
   if (!isHost && currentRoomId && annRoomId && annRoomId.toUpperCase() === currentRoomId.toUpperCase()) {
-    console.log('[P2P] Host re-announced room presence. Reconnecting...');
-    ctx.peerService.connectToHost(currentRoomId);
+    const hostPeerId = `synclounge-room-${currentRoomId.toLowerCase()}`;
+    const hostConn = ctx.peerService.connections.get(hostPeerId);
+    if (!hostConn || !hostConn.open) {
+      console.log('[P2P] Host re-announced room presence. Connecting...');
+      ctx.peerService.connectToHost(currentRoomId);
+    }
   }
 };
 
 export const handleRoomStateSync: SyncMessageHandler = (payload, _senderId, _ctx) => {
   const { isHost, currentUser } = useRoomStore.getState();
   if (!isHost) {
-    const { queue, currentTrack, playback, repeatMode, shuffleMode, chatMessages, peers } = payload;
+    const { queue, currentTrack, playback, repeatMode, shuffleMode, peers } = payload;
     if (queue) useMusicStore.getState().setQueue(queue);
     if (currentTrack !== undefined) useMusicStore.getState().setCurrentTrack(currentTrack);
     if (playback) {
@@ -136,7 +164,6 @@ export const handleRoomStateSync: SyncMessageHandler = (payload, _senderId, _ctx
     }
     if (repeatMode) useMusicStore.getState().setRepeatMode(repeatMode);
     if (shuffleMode !== undefined) useMusicStore.getState().setShuffleMode(shuffleMode);
-    if (chatMessages) useChatStore.getState().setMessages(chatMessages);
     if (peers && currentUser) {
       const filteredPeers = peers.filter((p: User) => p.id !== currentUser.id);
       useRoomStore.getState().setPeers(filteredPeers);
@@ -144,32 +171,26 @@ export const handleRoomStateSync: SyncMessageHandler = (payload, _senderId, _ctx
   }
 };
 
-export const handleJoinResponse: SyncMessageHandler = (payload, _senderId, ctx) => {
+export const handleJoinResponse: SyncMessageHandler = (payload, _senderId, _ctx) => {
   const { currentUser } = useRoomStore.getState();
   const { targetUserId, success, error, roomState } = payload;
   if (currentUser && targetUserId === currentUser.id) {
     if (!success) {
       useRoomStore.getState().setConnectionStatus('error', error || 'Room join rejected');
     } else if (roomState) {
+      // Mark guest as connected — this is the authoritative signal from the host
+      useRoomStore.getState().setConnectionStatus('connected');
       if (roomState.queue) useMusicStore.getState().setQueue(roomState.queue);
       if (roomState.currentTrack) useMusicStore.getState().setCurrentTrack(roomState.currentTrack);
       if (roomState.playback) useMusicStore.getState().setPlaybackState(roomState.playback);
-      if (roomState.chatMessages) useChatStore.getState().setMessages(roomState.chatMessages);
+      if (roomState.chatMessages) {
+        // Exclude vanished messages
+        const validChat = roomState.chatMessages.filter((m: any) => !m.isVanish);
+        useChatStore.getState().setMessages(validChat);
+      }
       if (roomState.peers) {
         const filteredPeers = roomState.peers.filter((p: User) => p.id !== currentUser.id);
         useRoomStore.getState().setPeers(filteredPeers);
-
-        const { roomId: currentRoomId } = useRoomStore.getState();
-        if (currentRoomId) {
-          filteredPeers.forEach((existingPeer: User) => {
-            if (!existingPeer.isHost) {
-              const guestPeerId = `synclounge-${currentRoomId.toLowerCase()}-${existingPeer.id.slice(-6)}`;
-              if (!ctx.peerService.connections.has(guestPeerId)) {
-                ctx.peerService.connectToPeer(guestPeerId);
-              }
-            }
-          });
-        }
       }
     }
   }
@@ -178,6 +199,8 @@ export const handleJoinResponse: SyncMessageHandler = (payload, _senderId, ctx) 
 export const handlePeerPresenceUpdate: SyncMessageHandler = (payload, _senderId, _ctx) => {
   const { user } = payload;
   if (user) {
+    const { currentUser } = useRoomStore.getState();
+    if (currentUser && user.id === currentUser.id) return;
     useRoomStore.getState().addPeer(user);
   }
 };

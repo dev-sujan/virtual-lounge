@@ -136,46 +136,53 @@ export async function searchYouTubeTracks(query: string): Promise<YouTubeMeta[]>
     duration: t.duration,
   }));
 
-  // Attempt Piped Public API search for live YouTube results
-  try {
-    const pipedUrl = `https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(trimmed)}&filter=music`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-    
-    const res = await fetch(pipedUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
+  // Attempt Piped Public API search for live YouTube results across multiple mirror instances
+  const instances = [
+    'https://pipedapi.kavin.rocks',
+    'https://api.piped.privacydev.net',
+    'https://piped-api.garudalinux.org',
+  ];
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.items && Array.isArray(data.items)) {
-        const liveItems: YouTubeMeta[] = data.items
-          .filter((item: any) => item.type === 'stream' && item.url)
-          .slice(0, 8)
-          .map((item: any) => {
-            const vId = item.url.replace('/watch?v=', '');
-            return {
-              videoId: vId,
-              title: item.title || 'YouTube Music Track',
-              author: item.uploaderName || 'YouTube Artist',
-              thumbnail: item.thumbnail || `https://img.youtube.com/vi/${vId}/hqdefault.jpg`,
-              duration: item.duration || 180,
-            };
-          });
+  for (const base of instances) {
+    try {
+      const pipedUrl = `${base}/search?q=${encodeURIComponent(trimmed)}&filter=music`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
 
-        if (liveItems.length > 0) {
-          // Merge deduplicated
-          const merged = [...liveItems];
-          matchedPresets.forEach((p) => {
-            if (!merged.some((m) => m.videoId === p.videoId)) {
-              merged.push(p);
-            }
-          });
-          return merged;
+      const res = await fetch(pipedUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.items && Array.isArray(data.items)) {
+          const liveItems: YouTubeMeta[] = data.items
+            .filter((item: any) => (item.type === 'stream' || item.url) && item.url)
+            .slice(0, 8)
+            .map((item: any) => {
+              const vId = item.url.replace('/watch?v=', '');
+              return {
+                videoId: vId,
+                title: item.title || 'YouTube Music Track',
+                author: item.uploaderName || 'YouTube Artist',
+                thumbnail: item.thumbnail || `https://img.youtube.com/vi/${vId}/hqdefault.jpg`,
+                duration: item.duration || 180,
+              };
+            });
+
+          if (liveItems.length > 0) {
+            const merged = [...liveItems];
+            matchedPresets.forEach((p) => {
+              if (!merged.some((m) => m.videoId === p.videoId)) {
+                merged.push(p);
+              }
+            });
+            return merged;
+          }
         }
       }
+    } catch {
+      // Continue to next mirror on failure
     }
-  } catch (err) {
-    console.warn('Piped API search unavailable, returning local matches:', err);
   }
 
   return matchedPresets;

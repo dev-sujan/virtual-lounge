@@ -2,12 +2,21 @@
 
 const keyCache = new Map<string, CryptoKey>();
 
-async function getEncryptionKey(passphrase: string, saltBase64: string): Promise<CryptoKey | null> {
+async function deriveDeterministicSalt(secretKey: string): Promise<ArrayBuffer> {
+  const enc = new TextEncoder();
+  const hashBuffer = await window.crypto.subtle.digest(
+    'SHA-256',
+    enc.encode(`synclounge_deterministic_salt_${secretKey}`)
+  );
+  return hashBuffer.slice(0, 16);
+}
+
+async function getEncryptionKey(passphrase: string, customSaltBase64?: string): Promise<CryptoKey | null> {
   if (typeof window === 'undefined' || !window.crypto || !window.crypto.subtle) {
     return null;
   }
 
-  const cacheKey = `${passphrase}:${saltBase64}`;
+  const cacheKey = customSaltBase64 ? `${passphrase}:${customSaltBase64}` : passphrase;
   if (keyCache.has(cacheKey)) {
     const cachedKey = keyCache.get(cacheKey)!;
     keyCache.delete(cacheKey);
@@ -25,12 +34,15 @@ async function getEncryptionKey(passphrase: string, saltBase64: string): Promise
       ['deriveKey']
     );
 
-    const salt = base64ToArrayBuffer(saltBase64);
+    const salt = customSaltBase64
+      ? base64ToArrayBuffer(customSaltBase64)
+      : await deriveDeterministicSalt(passphrase);
+
     const key = await window.crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
         salt,
-        iterations: 600000,
+        iterations: 100000,
         hash: 'SHA-256',
       },
       keyMaterial,
@@ -40,7 +52,7 @@ async function getEncryptionKey(passphrase: string, saltBase64: string): Promise
     );
 
     keyCache.set(cacheKey, key);
-    if (keyCache.size > 10) {
+    if (keyCache.size > 20) {
       const firstKey = keyCache.keys().next().value;
       if (firstKey !== undefined) keyCache.delete(firstKey);
     }
@@ -73,7 +85,7 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
 export interface EncryptedPackage {
   __e2ee: true;
   iv: string; // Base64 12-byte IV
-  salt: string; // Base64 16-byte salt
+  salt?: string; // Base64 salt (if custom)
   ciphertext: string; // Base64 ciphertext
 }
 
@@ -83,9 +95,7 @@ export async function encryptPayload(payload: any, secretKey: string): Promise<a
   }
 
   try {
-    const saltBytes = window.crypto.getRandomValues(new Uint8Array(16));
-    const saltBase64 = arrayBufferToBase64(saltBytes);
-    const key = await getEncryptionKey(secretKey, saltBase64);
+    const key = await getEncryptionKey(secretKey);
     if (!key) return payload;
 
     const iv = window.crypto.getRandomValues(new Uint8Array(12));
@@ -101,7 +111,6 @@ export async function encryptPayload(payload: any, secretKey: string): Promise<a
     return {
       __e2ee: true,
       iv: arrayBufferToBase64(iv),
-      salt: saltBase64,
       ciphertext: arrayBufferToBase64(encryptedBuffer),
     };
   } catch (err) {
@@ -116,8 +125,7 @@ export async function decryptPayload(data: any, secretKey: string): Promise<any>
   }
 
   try {
-    const saltBase64 = data.salt || arrayBufferToBase64(new TextEncoder().encode(`synclounge_salt_${secretKey}`));
-    const key = await getEncryptionKey(secretKey, saltBase64);
+    const key = await getEncryptionKey(secretKey, data.salt);
     if (!key) return null;
 
     const iv = base64ToArrayBuffer(data.iv);

@@ -10,13 +10,17 @@ import { dispatchMessage } from './handlers/messageRouter';
 type MessageHandler = (msg: SyncMessagePayload) => void;
 
 class PeerService {
-  private peer: Peer | null = null;
-  private connections: Map<string, DataConnection> = new Map();
-  private mediaCalls: Map<string, MediaConnection> = new Map();
+  public peer: Peer | null = null;
+  public connections: Map<string, DataConnection> = new Map();
+  public mediaCalls: Map<string, MediaConnection> = new Map();
   private broadcastChannel: BroadcastChannel | null = null;
   private messageHandlers: MessageHandler[] = [];
   private isInitialized = false;
   private autoReconnectTimer: ReturnType<typeof setInterval> | null = null;
+  private isReconnecting = false;
+  private pendingHostConnectPromise: Promise<DataConnection | null> | null = null;
+  private pendingPeerConnectPromises: Map<string, Promise<DataConnection | null>> = new Map();
+  private processedMessages = new Set<string>();
 
   public init(roomId: string, userId: string, isHost: boolean): Promise<string> {
     // Return existing active peer if already initializing or connected
@@ -40,7 +44,6 @@ class PeerService {
         this.destroy();
       } catch {}
     }
-
 
     return new Promise((resolve) => {
       try {
@@ -88,13 +91,6 @@ class PeerService {
                 });
               } catch {}
             }
-            const knownPeers = useRoomStore.getState().peers;
-            knownPeers.forEach((p) => {
-              if (p.id !== userId) {
-                const guestPeerId = `synclounge-${roomId.toLowerCase()}-${p.id.slice(-6)}`;
-                this.connectToPeer(guestPeerId);
-              }
-            });
           }
           resolve(id);
         });
@@ -120,8 +116,23 @@ class PeerService {
             });
             this.peer.on('connection', (conn) => this.setupDataConnection(conn));
             this.peer.on('call', (call) => this.handleIncomingCall(call));
+            this.peer.on('error', (altErr) => {
+              console.warn('[P2P] Alt-peer error:', altErr.type, altErr.message);
+              resolve(altId);
+            });
+            this.peer.on('disconnected', () => {
+              console.warn('[P2P] Alt-peer disconnected from signaling server, attempting reconnect...');
+              this.peer?.reconnect();
+            });
           } else {
             resolve(peerId);
+          }
+        });
+
+        this.peer.on('disconnected', () => {
+          console.warn('[P2P] Peer disconnected from signaling server, attempting reconnect...');
+          if (this.peer && !this.peer.destroyed) {
+            this.peer.reconnect();
           }
         });
       } catch (err) {
@@ -132,69 +143,127 @@ class PeerService {
   }
 
   public connectToHost(roomId: string, hostPeerId?: string): Promise<DataConnection | null> {
-    if (!this.peer) return Promise.resolve(null);
+    if (!this.peer || this.peer.destroyed) return Promise.resolve(null);
 
     const targetId = hostPeerId || `synclounge-room-${roomId.toLowerCase()}`;
 
-    // Already connected to host & open — reuse existing connection
-    if (this.connections.has(targetId)) {
-      const existing = this.connections.get(targetId);
-      if (existing && existing.open) {
-        return Promise.resolve(existing);
-      }
+    // 1. If already connected to host & open — reuse existing connection
+    const existing = this.connections.get(targetId);
+    if (existing && existing.open) {
+      return Promise.resolve(existing);
+    }
+
+    // 2. If a connection attempt is already in-flight, reuse the same promise
+    if (this.pendingHostConnectPromise) {
+      return this.pendingHostConnectPromise;
+    }
+
+    // 3. Clean up dead connection if present
+    if (existing) {
+      try { existing.close(); } catch {}
       this.connections.delete(targetId);
     }
 
-    return new Promise((resolve) => {
+    this.pendingHostConnectPromise = new Promise((resolve) => {
+      let settled = false;
+      const cleanup = (result: DataConnection | null) => {
+        if (!settled) {
+          settled = true;
+          this.pendingHostConnectPromise = null;
+          resolve(result);
+        }
+      };
+
       try {
-        let resolved = false;
+        console.log('[P2P] Connecting to host:', targetId);
         const conn = this.peer!.connect(targetId, { reliable: true });
         this.setupDataConnection(conn);
+
         conn.on('open', () => {
           console.log('[P2P] Connected to host peer:', targetId);
-          if (!resolved) { resolved = true; resolve(conn); }
+          cleanup(conn);
         });
-        // Fallback timeout if ICE negotiation takes longer than expected
+
+        conn.on('close', () => {
+          cleanup(null);
+        });
+
+        conn.on('error', (err) => {
+          console.warn('[P2P] Connection error with host:', err);
+          cleanup(null);
+        });
+
+        // 6 second timeout for ICE negotiation
         setTimeout(() => {
-          if (!resolved) { resolved = true; resolve(this.connections.get(targetId) || conn); }
-        }, 5000);
+          const activeConn = this.connections.get(targetId);
+          cleanup(activeConn && activeConn.open ? activeConn : null);
+        }, 6000);
       } catch (err) {
         console.error('[P2P] Error connecting to host:', err);
-        resolve(null);
+        cleanup(null);
       }
     });
+
+    return this.pendingHostConnectPromise;
   }
 
   public connectToPeer(peerId: string): Promise<DataConnection | null> {
-    if (!this.peer) return Promise.resolve(null);
-    if (this.connections.has(peerId)) {
-      const existing = this.connections.get(peerId);
-      if (existing && existing.open) {
-        return Promise.resolve(existing);
-      }
+    if (!this.peer || this.peer.destroyed) return Promise.resolve(null);
+
+    const existing = this.connections.get(peerId);
+    if (existing && existing.open) {
+      return Promise.resolve(existing);
+    }
+
+    if (this.pendingPeerConnectPromises.has(peerId)) {
+      return this.pendingPeerConnectPromises.get(peerId)!;
+    }
+
+    if (existing) {
+      try { existing.close(); } catch {}
       this.connections.delete(peerId);
     }
-    return new Promise((resolve) => {
+
+    const promise = new Promise<DataConnection | null>((resolve) => {
+      let settled = false;
+      const cleanup = (result: DataConnection | null) => {
+        if (!settled) {
+          settled = true;
+          this.pendingPeerConnectPromises.delete(peerId);
+          resolve(result);
+        }
+      };
+
       try {
-        let resolved = false;
         const conn = this.peer!.connect(peerId, { reliable: true });
         this.setupDataConnection(conn);
-        conn.on('open', () => { if (!resolved) { resolved = true; resolve(conn); } });
-        setTimeout(() => { if (!resolved) { resolved = true; resolve(conn); } }, 3000);
+        conn.on('open', () => cleanup(conn));
+        conn.on('close', () => cleanup(null));
+        conn.on('error', () => cleanup(null));
+        setTimeout(() => {
+          const activeConn = this.connections.get(peerId);
+          cleanup(activeConn && activeConn.open ? activeConn : null);
+        }, 4000);
       } catch {
-        resolve(null);
+        cleanup(null);
       }
     });
+
+    this.pendingPeerConnectPromises.set(peerId, promise);
+    return promise;
   }
 
   public startAutoReconnect(roomId: string) {
-    if (this.autoReconnectTimer) return;
+    if (this.isReconnecting) return;
+    this.isReconnecting = true;
 
     let attempts = 0;
-    const maxAttempts = 25;
-    console.log('[P2P] Connection lost. Starting exponential backoff auto-reconnect...');
+    const maxAttempts = 20;
+
+    console.log('[P2P] Starting auto-reconnect to host...');
 
     const runReconnect = async () => {
+      if (!this.isReconnecting) return;
       attempts++;
       const { isHost } = useRoomStore.getState();
 
@@ -202,22 +271,27 @@ class PeerService {
       const activeHostConn = this.connections.get(hostId);
 
       if (isHost || (activeHostConn && activeHostConn.open) || attempts > maxAttempts) {
+        this.isReconnecting = false;
         if (this.autoReconnectTimer) clearTimeout(this.autoReconnectTimer);
         this.autoReconnectTimer = null;
+        if (attempts > maxAttempts && (!activeHostConn || !activeHostConn.open)) {
+          useRoomStore.getState().setConnectionStatus('error', 'Reconnection timed out. Click to retry.');
+        }
         return;
       }
 
-      console.log(`[P2P] Auto-reconnecting to room "${roomId}" (attempt ${attempts}/${maxAttempts})...`);
+      console.log(`[P2P] Auto-reconnecting to host (attempt ${attempts}/${maxAttempts})...`);
       useRoomStore.getState().setConnectionStatus('connecting');
+
       const conn = await this.connectToHost(roomId);
       if (conn && conn.open) {
+        this.isReconnecting = false;
         if (this.autoReconnectTimer) clearTimeout(this.autoReconnectTimer);
         this.autoReconnectTimer = null;
         return;
       }
 
-      // Exponential backoff delay with random jitter (2s, 3.5s, 5.5s... max 15s)
-      const nextDelay = Math.min(15000, Math.floor(2000 * Math.pow(1.4, attempts - 1) + Math.random() * 600));
+      const nextDelay = Math.min(12000, Math.floor(2000 * Math.pow(1.3, attempts - 1) + Math.random() * 500));
       this.autoReconnectTimer = setTimeout(runReconnect, nextDelay);
     };
 
@@ -225,18 +299,22 @@ class PeerService {
   }
 
   private setupDataConnection(conn: DataConnection) {
+    // Store immediately to prevent duplicate connection attempts.
     this.connections.set(conn.peer, conn);
 
-    conn.on('open', () => {
+    let openHandled = false;
+    const handleOpen = () => {
+      if (openHandled) return;
+      openHandled = true;
+
+      this.connections.set(conn.peer, conn);
       console.log('[P2P] DataChannel opened with peer:', conn.peer);
       const { currentUser, isHost, password, roomId } = useRoomStore.getState();
 
       // Only send JOIN_REQUEST when connecting to the host peer.
-      // In mesh mode guests also connect to each other - those don't need JOIN_REQUEST.
-      const isConnectingToHost = conn.peer.includes(`synclounge-room-`);
+      const isConnectingToHost = conn.peer.startsWith(`synclounge-room-`);
 
       if (!isHost && currentUser && isConnectingToHost) {
-        // Send JOIN_REQUEST directly over this specific DataChannel connection
         const normalizedPassword = (password || '').trim();
         const activeRoomId = (roomId || 'default_lounge').toLowerCase().trim();
         const secretKey = `synclounge_${activeRoomId}_${normalizedPassword}`;
@@ -256,22 +334,43 @@ class PeerService {
           }
         });
       }
-    });
+    };
+
+    conn.on('open', handleOpen);
+
+    if (conn.open) {
+      handleOpen();
+    }
 
     conn.on('data', async (data: any) => {
-      await this.handleIncomingMessage(data as SyncMessagePayload);
+      await this.handleIncomingMessage(data as SyncMessagePayload, conn.peer);
     });
 
     conn.on('close', () => {
-      this.connections.delete(conn.peer);
+      console.log('[P2P] DataChannel closed with peer:', conn.peer);
+      // Only delete if this exact instance is still in the map
+      if (this.connections.get(conn.peer) === conn) {
+        this.connections.delete(conn.peer);
+      }
+
       const { isHost, roomId } = useRoomStore.getState();
-      if (!isHost && roomId) {
-        this.startAutoReconnect(roomId);
+      const hostPeerId = `synclounge-room-${(roomId || '').toLowerCase()}`;
+      const isHostConn = conn.peer === hostPeerId || conn.peer.startsWith(`synclounge-room-`);
+
+      // ONLY trigger auto-reconnect if guest lost its connection to host
+      if (!isHost && roomId && isHostConn) {
+        const activeHost = this.connections.get(hostPeerId);
+        if (!activeHost || !activeHost.open) {
+          this.startAutoReconnect(roomId);
+        }
       }
     });
 
     conn.on('error', (err) => {
       console.warn('[P2P] Data Connection error:', err);
+      if (this.connections.get(conn.peer) === conn) {
+        this.connections.delete(conn.peer);
+      }
     });
   }
 
@@ -343,8 +442,22 @@ class PeerService {
     }
   }
 
-  private async handleIncomingMessage(msg: SyncMessagePayload) {
+  private async handleIncomingMessage(msg: SyncMessagePayload, sourcePeerId?: string) {
     if (!msg || !msg.type) return;
+
+    // Deduplicate identical messages arriving via both WebRTC and BroadcastChannel
+    const msgPayloadSnippet = typeof msg.payload === 'object' && msg.payload?.ciphertext
+      ? msg.payload.ciphertext.slice(0, 24)
+      : String(msg.payload || '').slice(0, 24);
+    const msgKey = `${msg.type}_${msg.senderId}_${msg.timestamp}_${msgPayloadSnippet}`;
+    if (this.processedMessages.has(msgKey)) {
+      return;
+    }
+    this.processedMessages.add(msgKey);
+    if (this.processedMessages.size > 200) {
+      const first = this.processedMessages.values().next().value;
+      if (first !== undefined) this.processedMessages.delete(first);
+    }
 
     const { password, roomId } = useRoomStore.getState();
 
@@ -354,7 +467,7 @@ class PeerService {
     const secretKey = `synclounge_${activeRoomId}_${normalizedPassword}`;
     const payload = await decryptPayload(msg.payload, secretKey);
 
-    await dispatchMessage(msg.type, payload, msg.senderId, { peerService: this });
+    await dispatchMessage(msg.type, payload, msg.senderId, { peerService: this, sourcePeerId });
 
     // HOST RELAY: If this node is the host and message came from a guest,
     // forward the original encrypted wire message to all other connected peers.
@@ -365,8 +478,10 @@ class PeerService {
       const noRelayTypes: SyncEventType[] = ['PING', 'PONG', 'JOIN_REQUEST', 'JOIN_RESPONSE', 'HOST_ANNOUNCE'];
       if (!noRelayTypes.includes(msg.type)) {
         this.connections.forEach((conn, connPeerId) => {
-          // Relay to all peers EXCEPT the sender (identified by last 6 chars of their userId)
-          const isSender = connPeerId.endsWith(msg.senderId.slice(-6)) || connPeerId === msg.senderId;
+          // Relay to all peers EXCEPT the source connection
+          const isSender = sourcePeerId
+            ? connPeerId === sourcePeerId
+            : connPeerId.endsWith(msg.senderId.slice(-6)) || connPeerId === msg.senderId;
           if (!isSender && conn.open) {
             try {
               conn.send(msg); // Forward original encrypted message as-is
@@ -543,10 +658,14 @@ class PeerService {
   }
 
   public destroy() {
+    this.isReconnecting = false;
     if (this.autoReconnectTimer) {
       clearTimeout(this.autoReconnectTimer);
       this.autoReconnectTimer = null;
     }
+    this.pendingHostConnectPromise = null;
+    this.pendingPeerConnectPromises.clear();
+    this.processedMessages.clear();
     this.messageHandlers = [];
 
     this.connections.forEach((conn) => conn.close());
